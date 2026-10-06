@@ -48,6 +48,9 @@
     <button data-mode="hb" class="on">Hummingbird inserts</button>
     <button data-mode="plain">No hummingbirds</button>
   </div>
+  <button id="roll" style="width:100%;margin:8px 0;padding:9px;border:0;border-radius:6px;background:var(--wood);color:#1d1f1a;font-weight:600;cursor:pointer">Roll the dice through the birdfeeder</button>
+  <button id="tap" style="width:100%;margin:0 0 8px;padding:7px;border:1px solid var(--wood);border-radius:6px;background:transparent;color:var(--wood);cursor:pointer">Tap the tower (shakes loose a stuck die)</button>
+  <p class="note">Live physics in your browser (Rapier). It's an approximation: a stuck die here may roll freely on a real print, and vice versa.</p>
   <label><input type="checkbox" id="props" checked> Show game pieces</label>
   <label><input type="checkbox" id="hw" checked> Show screws and keys</label>
   <p class="note">Drag to orbit, scroll to zoom, right-drag to pan. The bearing is a placeholder shape.</p>
@@ -76,6 +79,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ---- panel content
 const data = await (await fetch('data.json', { cache: 'no-store' })).json();
@@ -176,8 +180,86 @@ document.querySelectorAll('#mode button').forEach(b => b.onclick = () => {
   apply();
 });
 apply();
+// ---- dice roll: live physics with Rapier. Units are scaled so a die is about 1 unit across, which
+// is the size Rapier's contact tolerances are tuned for (the model itself is in mm).
+const RAPIER = (await import('https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.14.0/+esm')).default;
+await RAPIER.init();
+const pose = manifest.tower_pose;
+const S = 0.05;                                   // mm -> physics units (20 mm per unit)
+function towerToWorld(x, y, z) {                  // tower coordinates -> assembled tray coordinates (mm)
+  const a = Math.PI / 4, b = pose.feeder_angle * Math.PI / 180;
+  let u = x * Math.cos(a) - y * Math.sin(a) + pose.feed_d * Math.cos(a);
+  let v = x * Math.sin(a) + y * Math.cos(a) + pose.feed_d * Math.sin(a);
+  return [u * Math.cos(b) - v * Math.sin(b), u * Math.sin(b) + v * Math.cos(b), z + pose.floor + pose.tray_z];
+}
+let world = null, dice = [], rolling = false;
+const dieGeo = new THREE.BoxGeometry(pose.die, pose.die, pose.die);
+const dieMat = new THREE.MeshStandardMaterial({ color: 0xd9bf8c, roughness: .7 });
+function colliderFrom(name) {
+  const p = parts.find(q => q.item.name === name);
+  if (!p) return;
+  // Shared vertices let Rapier fix internal edges, so dice don't snag on the seams between ramp triangles
+  const g = mergeVertices(p.mesh.geometry.clone().deleteAttribute('normal'), 1e-3);
+  const pos = g.attributes.position.array;
+  const v = new Float32Array(pos.length);
+  for (let i = 0; i < pos.length; i++) v[i] = pos[i] * S;
+  const idx = new Uint32Array(g.index.array);
+  const flags = RAPIER.TriMeshFlags ? RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES : undefined;
+  world.createCollider(RAPIER.ColliderDesc.trimesh(v, idx, flags).setFriction(0.4).setRestitution(0.35));
+}
+function roll() {
+  slider.value = 0; apply();                      // physics runs on the assembled tray
+  for (const d of dice) scene.remove(d.mesh);
+  world = new RAPIER.World({ x: 0, y: 0, z: -9810 * S });   // 9810 mm/s^2 in physics units
+  world.numSolverIterations = 8;
+  ['feeder-tower', 'quarter-feeder', mode === 'hb' ? 'insert-feeder-hb' : 'insert-feeder-plain', 'quarter-cards',
+   'quarter-food-eggs', 'quarter-decks'].forEach(colliderFrom);
+  world.createCollider(RAPIER.ColliderDesc.cuboid(1000 * S, 1000 * S, 10 * S).setTranslation(0, 0, (pose.tray_z - 10) * S));
+  const h = pose.die / 2 * S;
+  const spots = [[-16, -14, 112], [-16, 14, 113], [4, -14, 118], [4, 14, 119], [-8, 0, 142]];
+  dice = spots.map(([x, y, z]) => {
+    const [wx, wy, wz] = towerToWorld(x + (Math.random() - .5) * 4, y + (Math.random() - .5) * 4, z);
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * .7, Math.random() * .7, Math.random() * 6.3));
+    const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(wx * S, wy * S, wz * S)
+      .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }).setCcdEnabled(true).setCanSleep(false));
+    const rr = 2 * S;                                  // 2 mm rounded edges, like real wooden dice
+    world.createCollider(RAPIER.ColliderDesc.roundCuboid(h - rr, h - rr, h - rr, rr)
+      .setDensity(1).setFriction(0.4).setRestitution(0.35), body);
+    const mesh = new THREE.Mesh(dieGeo, dieMat);
+    scene.add(mesh);
+    return { body, mesh };
+  });
+  rolling = true;
+  clearTimeout(window.__settle);
+  window.__settle = setTimeout(() => { rolling = false; }, 14000);
+}
+document.getElementById('roll').onclick = roll;
+document.getElementById('tap').onclick = () => {
+  if (!world) return;
+  for (const d of dice) {
+    const k = 15 * d.body.mass();                    // about 0.3 m/s kick, like a sharp tap
+    d.body.applyImpulse({ x: (Math.random() - .5) * k, y: (Math.random() - .5) * k, z: k }, true);
+    d.body.applyTorqueImpulse({ x: (Math.random() - .5) * k, y: (Math.random() - .5) * k, z: (Math.random() - .5) * k }, true);
+  }
+  rolling = true;
+  clearTimeout(window.__settle);
+  window.__settle = setTimeout(() => { rolling = false; }, 8000);
+};
+window.diceState = () => dice.map(d => { const t = d.body.translation(); return [t.x / S, t.y / S, t.z / S].map(v => Math.round(v)); });
+const step = 1 / 240;
+function physics() {
+  if (!rolling || !world) return;
+  world.timestep = step;
+  for (let i = 0; i < 4; i++) world.step();       // 4 x 1/240 s per 60 fps frame = real time
+  for (const d of dice) {
+    const t = d.body.translation(), r = d.body.rotation();
+    d.mesh.position.set(t.x / S, t.y / S, t.z / S);
+    d.mesh.quaternion.set(r.x, r.y, r.z, r.w);
+  }
+}
+
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
-(function loop() { renderer.render(scene, camera); requestAnimationFrame(loop); })();
+(function loop() { physics(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
 </script>
 </body>
 </html>
