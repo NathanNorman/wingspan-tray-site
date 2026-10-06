@@ -138,8 +138,8 @@
    "Alignment pins for gluing the birdfeeder halves."
   ]
  ],
- "checks_passed": 202,
- "checks_total": 202,
+ "checks_passed": 196,
+ "checks_total": 196,
  "sims": {
   "dice-simulation": {
    "trials": 40,
