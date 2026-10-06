@@ -237,7 +237,7 @@ document.getElementById('roll').onclick = roll;
 document.getElementById('tap').onclick = () => {
   if (!world) return;
   for (const d of dice) {
-    const k = 15 * d.body.mass();                    // about 0.3 m/s kick, like a sharp tap
+    const k = 40 * d.body.mass();                    // about 0.8 m/s kick, like a firm knock on the tower
     d.body.applyImpulse({ x: (Math.random() - .5) * k, y: (Math.random() - .5) * k, z: k }, true);
     d.body.applyTorqueImpulse({ x: (Math.random() - .5) * k, y: (Math.random() - .5) * k, z: (Math.random() - .5) * k }, true);
   }
@@ -245,7 +245,6 @@ document.getElementById('tap').onclick = () => {
   clearTimeout(window.__settle);
   window.__settle = setTimeout(() => { rolling = false; }, 8000);
 };
-window.diceState = () => dice.map(d => { const t = d.body.translation(); return [t.x / S, t.y / S, t.z / S].map(v => Math.round(v)); });
 const step = 1 / 240;
 function physics() {
   if (!rolling || !world) return;
