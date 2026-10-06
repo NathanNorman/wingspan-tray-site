@@ -49,6 +49,11 @@
     <button data-mode="plain">No hummingbirds</button>
   </div>
   <button id="roll" style="width:100%;margin:8px 0;padding:9px;border:0;border-radius:6px;background:var(--wood);color:#1d1f1a;font-weight:600;cursor:pointer">Roll the dice through the birdfeeder</button>
+  <div class="seg" id="diceset">
+    <button data-set="oceania" class="on">Oceania dice</button>
+    <button data-set="standard">Standard dice</button>
+  </div>
+  <p id="rollresult" class="note"></p>
   <button id="tap" style="width:100%;margin:0 0 8px;padding:7px;border:1px solid var(--wood);border-radius:6px;background:transparent;color:var(--wood);cursor:pointer">Tap the tower (shakes loose a stuck die)</button>
   <p class="note">Live physics in your browser (Rapier). It's an approximation: a stuck die here may roll freely on a real print, and vice versa.</p>
   <label><input type="checkbox" id="props" checked> Show game pieces</label>
@@ -80,6 +85,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // ---- panel content
 const data = await (await fetch('data.json', { cache: 'no-store' })).json();
@@ -160,6 +166,14 @@ function apply() {
   const t = slider.value / 100, e = t * t * (3 - 2 * t);
   document.getElementById('pct').textContent = slider.value + '%';
   const props = document.getElementById('props').checked, hw = document.getElementById('hw').checked;
+  const tmove = out(qa['food-eggs'] + 45, 140, 0); tmove[2] = 330;
+  for (const t of window.__tokens || []) { t.position.set(tmove[0] * e, tmove[1] * e, tmove[2] * e); t.visible = props; }
+  const dm = window.__dice || [];                 // dice ride along with the feeder quarter's game pieces
+  const dmove = out(qa.feeder + 45, 140, 0); dmove[2] = 330;
+  for (const m of dm) {
+    m.position.copy(m.userData.base).add(new THREE.Vector3(dmove[0] * e, dmove[1] * e, dmove[2] * e));
+    m.visible = props;
+  }
   for (const p of parts) {
     const g = p.item.group, n = p.item.name;
     p.mesh.position.set(p.move[0] * e, p.move[1] * e, p.move[2] * e);
@@ -167,6 +181,7 @@ function apply() {
     if (g === 'insert-hb' || g === 'props-hb') vis = mode === 'hb';
     if (g === 'insert-plain') vis = mode === 'plain';
     if (g.startsWith('props')) vis = vis && props;
+    if (g === 'props-tokens') vis = false;        // drawn as textured tokens instead
     if (['screws', 'keys', 'arm-screws'].includes(n)) vis = hw;
     p.mesh.visible = vis;
   }
@@ -193,8 +208,114 @@ function towerToWorld(x, y, z) {                  // tower coordinates -> assemb
   return [u * Math.cos(b) - v * Math.sin(b), u * Math.sin(b) + v * Math.cos(b), z + pose.floor + pose.tray_z];
 }
 let world = null, dice = [], rolling = false;
-const dieGeo = new THREE.BoxGeometry(pose.die, pose.die, pose.die);
-const dieMat = new THREE.MeshStandardMaterial({ color: 0xd9bf8c, roughness: .7 });
+// ---- Wingspan food dice. Faces follow the game: material order is +x, +y, -x, -y (the four sides, in
+// ring order so opposite faces stay opposite), then +z (top) and -z (bottom).
+const DICE_SETS = {
+  standard: [['invertebrate'], ['fruit'], ['seed'], ['fish'], ['rodent'], ['invertebrate', 'seed']],
+  oceania: [['invertebrate'], ['fish'], ['seed', 'nectar'], ['rodent'], ['fruit', 'nectar'], ['invertebrate', 'seed']],
+};
+const FOOD_INK = { fish: '#1f6fb4', invertebrate: '#1f5a3a', seed: '#f0931e', fruit: '#a8203a', nectar: '#e3478a', rodent: '#3b3b40' };
+function drawFood(g, food, cx, cy, sz) {           // simple silhouettes, drawn at size sz around (cx, cy)
+  g.save(); g.translate(cx, cy); g.scale(sz / 100, sz / 100); g.fillStyle = g.strokeStyle = FOOD_INK[food];
+  if (food === 'fish') {
+    g.beginPath(); g.ellipse(-8, 0, 34, 18, 0, 0, 7); g.fill();
+    g.beginPath(); g.moveTo(22, 0); g.lineTo(46, -18); g.lineTo(46, 18); g.fill();
+    g.fillStyle = '#f2e6cc'; g.beginPath(); g.arc(-26, -4, 4, 0, 7); g.fill();
+  } else if (food === 'invertebrate') {
+    g.lineWidth = 14; g.lineCap = 'round'; g.beginPath(); g.moveTo(-40, 14);
+    g.bezierCurveTo(-25, -20, -5, 30, 12, 0); g.bezierCurveTo(22, -16, 32, -16, 40, -24); g.stroke();
+  } else if (food === 'seed') {
+    g.lineWidth = 4; g.beginPath(); g.moveTo(-38, 26); g.lineTo(36, -20); g.stroke();
+    for (let i = 0; i < 4; i++) for (const s of [1, -1]) {
+      g.save(); g.translate(-22 + i * 17, 16 - i * 10.5); g.rotate(-0.56 + s * 0.75);
+      g.beginPath(); g.ellipse(0, -s * 9, 6, 12, 0, 0, 7); g.fill(); g.restore();
+    }
+  } else if (food === 'fruit') {
+    g.lineWidth = 4; g.beginPath(); g.moveTo(-34, 30); g.lineTo(0, 0); g.lineTo(10, -26); g.moveTo(0, 0); g.lineTo(28, 2); g.stroke();
+    for (const [x, y] of [[0, 0], [12, -28], [30, 4]]) { g.beginPath(); g.arc(x, y, 13, 0, 7); g.fill(); }
+  } else if (food === 'nectar') {
+    for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; g.beginPath(); g.arc(Math.cos(a) * 20, Math.sin(a) * 20, 14, 0, 7); g.fill(); }
+    g.fillStyle = '#f7d9e4'; g.beginPath(); g.arc(0, 0, 9, 0, 7); g.fill();
+  } else if (food === 'rodent') {
+    g.beginPath(); g.ellipse(0, 6, 32, 18, 0, 0, 7); g.fill();
+    g.beginPath(); g.moveTo(-26, 6); g.lineTo(-46, 12); g.lineTo(-26, 16); g.fill();
+    g.beginPath(); g.arc(-14, -12, 9, 0, 7); g.fill();
+    g.lineWidth = 3; g.beginPath(); g.moveTo(30, 12); g.bezierCurveTo(50, 18, 40, -10, 52, -14); g.stroke();
+  }
+  g.restore();
+}
+function faceTexture(foods) {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ead9b6'; g.fillRect(0, 0, 256, 256);            // pale wood
+  g.globalAlpha = .08; g.strokeStyle = '#8a6a3c';
+  for (let i = 0; i < 18; i++) { g.lineWidth = 1 + (i % 3); g.beginPath(); g.moveTo(0, i * 15 + 4); g.bezierCurveTo(90, i * 15 - 6, 170, i * 15 + 12, 256, i * 15 + 2); g.stroke(); }
+  g.globalAlpha = 1;
+  if (foods.length === 1) drawFood(g, foods[0], 128, 128, 150);
+  else {
+    g.strokeStyle = '#2f2f33'; g.lineWidth = 5; g.beginPath(); g.moveTo(200, 50); g.lineTo(56, 206); g.stroke();
+    drawFood(g, foods[0], 88, 92, 92); drawFood(g, foods[1], 170, 168, 92);
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const diceMats = {};
+for (const [set, faces] of Object.entries(DICE_SETS))
+  diceMats[set] = faces.map(f => new THREE.MeshStandardMaterial({ map: faceTexture(f), roughness: .75 }));
+let diceSet = 'oceania';
+
+// ---- Food tokens drawn like the game's: coloured ring, pale centre, food icon, grey cardboard edge
+const TOKEN_RING = { fish: '#3f86c8', invertebrate: '#2b8a78', seed: '#ee8a24', fruit: '#c63845', nectar: '#e2508f', rodent: '#8f8a84' };
+function tokenTexture(food) {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = TOKEN_RING[food]; g.beginPath(); g.arc(128, 128, 128, 0, 7); g.fill();
+  const grad = g.createRadialGradient(128, 128, 10, 128, 128, 92);
+  grad.addColorStop(0, '#ffffff'); grad.addColorStop(1, '#f1ece2');
+  g.fillStyle = grad; g.beginPath(); g.arc(128, 128, 92, 0, 7); g.fill();
+  drawFood(g, food, 128, 128, 130);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const [TD_, TT_] = pose.token_size;
+const tokenGeo = new THREE.CylinderGeometry(TD_ / 2, TD_ / 2, TT_, 48).rotateX(Math.PI / 2);   // caps face +z / -z
+const edgeMat = new THREE.MeshStandardMaterial({ color: 0x9a948a, roughness: .9 });
+const tokenGroups = Object.entries(pose.tokens).map(([food, list]) => {
+  const top = new THREE.MeshStandardMaterial({ map: tokenTexture(food), roughness: .8 });
+  const mesh = new THREE.InstancedMesh(tokenGeo, [edgeMat, top, edgeMat], list.length);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  list.forEach(([x, y, z, tx, ty, spin], i) => {
+    q.setFromEuler(e.set(tx * Math.PI / 180, ty * Math.PI / 180, spin * Math.PI / 180, 'ZYX'));
+    m4.compose(new THREE.Vector3(x, y, z + TT_ / 2), q, new THREE.Vector3(1, 1, 1));
+    mesh.setMatrixAt(i, m4);
+  });
+  scene.add(mesh); return mesh;
+});
+window.__tokens = tokenGroups;
+const dieGeo = new RoundedBoxGeometry(pose.die, pose.die, pose.die, 3, 2);
+const dieMeshes = pose.dice_rest.map(([x, y, z, yaw]) => {
+  const m = new THREE.Mesh(dieGeo, diceMats[diceSet]);
+  m.userData.rest = new THREE.Vector3(x, y, z); m.rotation.z = yaw * Math.PI / 180;
+  m.userData.restQ = m.quaternion.clone();
+  m.position.copy(m.userData.rest); m.userData.base = m.position.clone(); scene.add(m); return m;
+});
+window.__dice = dieMeshes;
+function topFace(q) {                            // which face points up: index into the set's face list
+  const axes = [[1, 0, 0], [0, 1, 0], [-1, 0, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+  let best = 0, bestZ = -2;
+  axes.forEach((a, i) => { const z = new THREE.Vector3(...a).applyQuaternion(q).z; if (z > bestZ) { bestZ = z; best = i; } });
+  return best;
+}
+const FOOD_NAME = { invertebrate: 'invertebrate', fruit: 'fruit', seed: 'seed', fish: 'fish', rodent: 'rodent', nectar: 'nectar' };
+function showResult() {
+  dieMeshes.forEach(m => m.userData.base = m.position.clone());
+  const faces = DICE_SETS[diceSet];
+  document.getElementById('rollresult').textContent = 'Rolled: ' +
+    dieMeshes.map(m => faces[topFace(m.quaternion)].map(f => FOOD_NAME[f]).join('/')).join(', ');
+}
+document.querySelectorAll('#diceset button').forEach(b => b.onclick = () => {
+  diceSet = b.dataset.set;
+  document.querySelectorAll('#diceset button').forEach(x => x.classList.toggle('on', x === b));
+  dieMeshes.forEach(m => m.material = diceMats[diceSet]);
+});
 function colliderFrom(name) {
   const p = parts.find(q => q.item.name === name);
   if (!p) return;
@@ -209,7 +330,7 @@ function colliderFrom(name) {
 }
 function roll() {
   slider.value = 0; apply();                      // physics runs on the assembled tray
-  for (const d of dice) scene.remove(d.mesh);
+  document.getElementById('rollresult').textContent = 'Rolling...';
   world = new RAPIER.World({ x: 0, y: 0, z: -9810 * S });   // 9810 mm/s^2 in physics units
   world.numSolverIterations = 8;
   ['feeder-tower', 'quarter-feeder', mode === 'hb' ? 'insert-feeder-hb' : 'insert-feeder-plain', 'quarter-cards',
@@ -217,7 +338,7 @@ function roll() {
   world.createCollider(RAPIER.ColliderDesc.cuboid(1000 * S, 1000 * S, 10 * S).setTranslation(0, 0, (pose.tray_z - 10) * S));
   const h = pose.die / 2 * S;
   const spots = [[-16, -14, 112], [-16, 14, 113], [4, -14, 118], [4, 14, 119], [-8, 0, 142]];
-  dice = spots.map(([x, y, z]) => {
+  dice = spots.map(([x, y, z], k) => {
     const [wx, wy, wz] = towerToWorld(x + (Math.random() - .5) * 4, y + (Math.random() - .5) * 4, z);
     const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * .7, Math.random() * .7, Math.random() * 6.3));
     const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(wx * S, wy * S, wz * S)
@@ -225,13 +346,11 @@ function roll() {
     const rr = 2 * S;                                  // 2 mm rounded edges, like real wooden dice
     world.createCollider(RAPIER.ColliderDesc.roundCuboid(h - rr, h - rr, h - rr, rr)
       .setDensity(1).setFriction(0.4).setRestitution(0.35), body);
-    const mesh = new THREE.Mesh(dieGeo, dieMat);
-    scene.add(mesh);
-    return { body, mesh };
+    return { body, mesh: dieMeshes[k] };
   });
   rolling = true;
   clearTimeout(window.__settle);
-  window.__settle = setTimeout(() => { rolling = false; }, 14000);
+  window.__settle = setTimeout(() => { rolling = false; showResult(); }, 14000);
 }
 document.getElementById('roll').onclick = roll;
 document.getElementById('tap').onclick = () => {
@@ -243,7 +362,7 @@ document.getElementById('tap').onclick = () => {
   }
   rolling = true;
   clearTimeout(window.__settle);
-  window.__settle = setTimeout(() => { rolling = false; }, 8000);
+  window.__settle = setTimeout(() => { rolling = false; showResult(); }, 8000);
 };
 const step = 1 / 240;
 function physics() {
