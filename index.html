@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wingspan spinning tray</title>
+<style>
+  :root { --bg: #23251f; --panel: rgba(30, 32, 27, .92); --ink: #e9e4d6; --muted: #a9a492; --accent: #a7b89a; --wood: #c9b48c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #view { position: fixed; inset: 0; }
+  #panel { position: fixed; top: 12px; left: 12px; bottom: 12px; width: 360px; background: var(--panel); border-radius: 10px;
+           padding: 16px 18px; overflow-y: auto; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+  #panel.hidden { transform: translateX(-380px); }
+  #toggle { position: fixed; top: 16px; left: 384px; z-index: 2; background: var(--panel); color: var(--ink); border: 0;
+            border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+  #panel.hidden + #toggle { left: 16px; }
+  h1 { font-size: 18px; margin: 0 0 4px; color: var(--wood); }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin: 20px 0 8px; }
+  p { margin: 6px 0; color: var(--muted); }
+  label { display: block; margin: 6px 0; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .seg { display: flex; gap: 0; margin: 6px 0; border: 1px solid #555; border-radius: 6px; overflow: hidden; }
+  .seg button { flex: 1; background: transparent; color: var(--ink); border: 0; padding: 7px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #1d1f1a; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td { padding: 5px 4px; border-top: 1px solid #3a3c34; vertical-align: top; }
+  td.q { width: 52px; color: var(--muted); }
+  a { color: var(--wood); }
+  .note { color: var(--muted); font-size: 12px; }
+  .gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .gallery img { width: 100%; border-radius: 4px; cursor: zoom-in; }
+  #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; z-index: 5; }
+  #lightbox img { max-width: 92vw; max-height: 92vh; }
+  #status { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="view"></div>
+<aside id="panel">
+  <h1>Wingspan spinning tray</h1>
+  <p id="summary">A 3D-printable spinning organizer for Wingspan.</p>
+  <p id="status">Loading 3D model...</p>
+
+  <h2>Explore</h2>
+  <label>Pull apart: <span id="pct">0%</span><input id="explode" type="range" min="0" max="100" value="0"></label>
+  <div class="seg" id="mode">
+    <button data-mode="hb" class="on">Hummingbird inserts</button>
+    <button data-mode="plain">No hummingbirds</button>
+  </div>
+  <label><input type="checkbox" id="props" checked> Show game pieces</label>
+  <label><input type="checkbox" id="hw" checked> Show screws and keys</label>
+  <p class="note">Drag to orbit, scroll to zoom, right-drag to pan. The bearing is a placeholder shape.</p>
+
+  <h2>Print files</h2>
+  <table id="files"></table>
+  <p class="note">Millimetres, already oriented for printing, no supports. Every part fits a 250 x 250 mm bed.</p>
+
+  <h2>Hardware</h2>
+  <table id="hardware"></table>
+
+  <h2>Renders</h2>
+  <div class="gallery" id="gallery"></div>
+
+  <h2>Checks</h2>
+  <p id="checks"></p>
+</aside>
+<button id="toggle">Hide panel</button>
+<div id="lightbox"><img alt=""></div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+
+// ---- panel content
+const data = await (await fetch('data.json', { cache: 'no-store' })).json();
+document.getElementById('summary').textContent =
+  `A ${data.diameter} mm (${(data.diameter / 25.4).toFixed(1)} in) 3D-printable spinning organizer for Wingspan: four quarters, a birdhouse dice tower, swappable hummingbird inserts, and a base for a 4-inch lazy Susan bearing.`;
+document.getElementById('files').innerHTML = data.files.map(f =>
+  `<tr><td class="q">${f.qty}</td><td><a href="${f.file}" download>${f.name}.stl</a> <span class="note">${f.mb} MB</span><br><span class="note">${f.note}</span></td></tr>`).join('');
+document.getElementById('hardware').innerHTML = data.hardware.map(([q, name, url, note]) =>
+  `<tr><td class="q">${q}</td><td>${url ? `<a href="${url}" target="_blank" rel="noopener">${name}</a>` : name}<br><span class="note">${note}</span></td></tr>`).join('');
+const renders = ['hero', 'hero-plain', 'top', 'quarter-cards', 'quarter-feeder', 'quarter-food-eggs', 'quarter-decks',
+                 'tower-section', 'detail-goals', 'exploded', 'underside', 'print-beds'];
+document.getElementById('gallery').innerHTML = renders.map(r => `<img src="renders/${r}.jpg" alt="${r}" loading="lazy">`).join('');
+const lb = document.getElementById('lightbox');
+document.getElementById('gallery').onclick = e => { if (e.target.tagName === 'IMG') { lb.querySelector('img').src = e.target.src; lb.style.display = 'flex'; } };
+lb.onclick = () => lb.style.display = 'none';
+const sim = data.sims['dice-simulation'];
+document.getElementById('checks').textContent =
+  `${data.checks_passed} of ${data.checks_total} automated fit and assembly checks pass.` +
+  (sim ? ` In ${sim.trials} simulated five-dice drops, ${sim.outcomes['exited through the front'] || 0} dice rolled out of the birdfeeder.` : '');
+const panel = document.getElementById('panel'), toggle = document.getElementById('toggle');
+toggle.onclick = () => { panel.classList.toggle('hidden'); toggle.textContent = panel.classList.contains('hidden') ? 'Show panel' : 'Hide panel'; };
+
+// ---- 3D view
+const holder = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+holder.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x23251f);
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 1, 10000);
+camera.up.set(0, 0, 1);
+camera.position.set(-760, -1100, 900);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(-80, 0, 160);
+controls.zoomSpeed = 10;            // trackpads barely move at the default of 1
+controls.zoomToCursor = true;
+controls.minDistance = 40;
+controls.maxDistance = 4000;
+controls.update();
+scene.add(new THREE.HemisphereLight(0xfff8ec, 0x3a3a30, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+sun.position.set(300, -400, 800);
+scene.add(sun);
+
+const manifest = await (await fetch('assembly/manifest.json')).json();
+const qa = manifest.quarter_angles;
+const out = (deg, r, z) => [r * Math.cos(deg * Math.PI / 180), r * Math.sin(deg * Math.PI / 180), z];
+const quarterOf = n => (n.includes('small-discard') ? 'feeder' : null) || ['cards', 'food-eggs', 'feeder', 'decks'].find(q => n.includes(q)) ||
+  ({ bird: 'cards', goal: 'cards', small: 'cards', tokens: 'food-eggs', eggs: 'food-eggs', dice: 'feeder', decks: 'decks' }
+    [Object.keys({ bird: 1, goal: 1, small: 1, tokens: 1, eggs: 1, dice: 1, decks: 1 }).find(k => n.includes(k))]);
+function moveFor(n, g) {
+  if (n.startsWith('quarter-')) return out(qa[quarterOf(n)] + 45, 140, 260);
+  if (n.startsWith('insert-')) { const m = out(qa[quarterOf(n)] + 45, 140, 260); m[2] += 110; return m; }
+  if (n === 'feeder-tower') { const m = out(qa.feeder + 45, 140, 0); m[2] = 450; return m; }
+  if (g.startsWith('props')) { const m = out(qa[quarterOf(n)] + 45, 140, 0); m[2] = n.includes('small') ? 400 : 330; return m; }
+  return { screws: [0, 0, 330], keys: [0, 0, 200], hub: [0, 0, 150], 'bearing-placeholder': [0, 0, 80], 'arm-screws': [0, 0, 40] }[n] || [0, 0, 0];
+}
+const loader = new STLLoader();
+const parts = [];
+let loaded = 0;
+const status = document.getElementById('status');
+await Promise.all(manifest.items.map(async item => {
+  const geo = await loader.loadAsync('assembly/' + item.file);
+  geo.computeVertexNormals();
+  const metal = /bearing|screw/.test(item.name);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    color: new THREE.Color(...item.color), roughness: .8, metalness: metal ? .6 : 0 }));
+  scene.add(mesh);
+  parts.push({ item, mesh, move: moveFor(item.name, item.group) });
+  status.textContent = `Loaded ${++loaded} of ${manifest.items.length} parts`;
+}));
+status.textContent = '';
+
+let mode = 'hb';
+const slider = document.getElementById('explode');
+function apply() {
+  const t = slider.value / 100, e = t * t * (3 - 2 * t);
+  document.getElementById('pct').textContent = slider.value + '%';
+  const props = document.getElementById('props').checked, hw = document.getElementById('hw').checked;
+  for (const p of parts) {
+    const g = p.item.group, n = p.item.name;
+    p.mesh.position.set(p.move[0] * e, p.move[1] * e, p.move[2] * e);
+    let vis = true;
+    if (g === 'insert-hb' || g === 'props-hb') vis = mode === 'hb';
+    if (g === 'insert-plain') vis = mode === 'plain';
+    if (g.startsWith('props')) vis = vis && props;
+    if (['screws', 'keys', 'arm-screws'].includes(n)) vis = hw;
+    p.mesh.visible = vis;
+  }
+}
+slider.oninput = apply;
+document.getElementById('props').onchange = apply;
+document.getElementById('hw').onchange = apply;
+document.querySelectorAll('#mode button').forEach(b => b.onclick = () => {
+  mode = b.dataset.mode;
+  document.querySelectorAll('#mode button').forEach(x => x.classList.toggle('on', x === b));
+  apply();
+});
+apply();
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+(function loop() { renderer.render(scene, camera); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+{
+ "files": [
+  {
+   "file": "stl/arms-x6.stl",
+   "name": "arms-x6",
+   "qty": "1 plate",
+   "note": "Six outrigger arms that stop the tray tipping.",
+   "mb": 0.24
+  },
+  {
+   "file": "stl/base.stl",
+   "name": "base",
+   "qty": "1",
+   "note": "5 walls or 40% infill.",
+   "mb": 0.65
+  },
+  {
+   "file": "stl/feeder-half-a.stl",
+   "name": "feeder-half-a",
+   "qty": "1",
+   "note": "Birdfeeder half. Lies on its side wall; glue to half B.",
+   "mb": 0.03
+  },
+  {
+   "file": "stl/feeder-half-b.stl",
+   "name": "feeder-half-b",
+   "qty": "1",
+   "note": "Birdfeeder half (mirror of A).",
+   "mb": 0.03
+  },
+  {
+   "file": "stl/fit-test-coupon.stl",
+   "name": "fit-test-coupon",
+   "qty": "1",
+   "note": "Print first: checks the key, countersink and screw fits.",
+   "mb": 0.06
+  },
+  {
+   "file": "stl/hub.stl",
+   "name": "hub",
+   "qty": "1",
+   "note": "Printed top-down. 5 walls or 40% infill (screws bite into it).",
+   "mb": 0.34
+  },
+  {
+   "file": "stl/insert-cards-hummingbird.stl",
+   "name": "insert-cards-hummingbird",
+   "qty": "1",
+   "note": "Swappable: hummingbird display (5 slots).",
+   "mb": 0.3
+  },
+  {
+   "file": "stl/insert-cards-plain.stl",
+   "name": "insert-cards-plain",
+   "qty": "1",
+   "note": "Swappable: four open bins for games without hummingbirds.",
+   "mb": 0.09
+  },
+  {
+   "file": "stl/insert-feeder-hummingbird.stl",
+   "name": "insert-feeder-hummingbird",
+   "qty": "1",
+   "note": "Swappable: hummingbird draw deck and discard.",
+   "mb": 0.02
+  },
+  {
+   "file": "stl/insert-feeder-plain.stl",
+   "name": "insert-feeder-plain",
+   "qty": "1",
+   "note": "Swappable: open tray for games without hummingbirds.",
+   "mb": 0.01
+  },
+  {
+   "file": "stl/keys-x8.stl",
+   "name": "keys-x8",
+   "qty": "1 plate",
+   "note": "Eight bowtie keys that join the quarters.",
+   "mb": 0.01
+  },
+  {
+   "file": "stl/quarter-cards.stl",
+   "name": "quarter-cards",
+   "qty": "1",
+   "note": "Bird-card stands and goal ledge. Floor down.",
+   "mb": 1.59
+  },
+  {
+   "file": "stl/quarter-decks.stl",
+   "name": "quarter-decks",
+   "qty": "1",
+   "note": "Deck and discard wells. Floor down.",
+   "mb": 0.56
+  },
+  {
+   "file": "stl/quarter-feeder.stl",
+   "name": "quarter-feeder",
+   "qty": "1",
+   "note": "Birdfeeder dish and rolling area. Floor down.",
+   "mb": 0.93
+  },
+  {
+   "file": "stl/quarter-food-eggs.stl",
+   "name": "quarter-food-eggs",
+   "qty": "1",
+   "note": "Food bins and egg bin. Floor down.",
+   "mb": 1.27
+  }
+ ],
+ "hardware": [
+  [
+   "1",
+   "4-inch lazy Susan bearing",
+   "https://www.amazon.com/dp/B0BHQSHBXT",
+   "Choose the 4-inch option."
+  ],
+  [
+   "20",
+   "#6 x 1/2\" flat-head wood screws",
+   "https://www.amazon.com/s?k=%236+x+1%2F2+flat+head+wood+screws",
+   "Quarters to hub (8) and arms to base (12). Sold in 100-packs."
+  ],
+  [
+   "8",
+   "#6 x 3/8\" pan-head wood screws",
+   "https://www.amazon.com/s?k=%236+x+3%2F8+pan+head+wood+screws",
+   "Bearing to hub and base: one per bearing hole."
+  ],
+  [
+   "12",
+   "Rubber bumper feet, 12 mm or smaller",
+   "https://www.amazon.com/s?k=12mm+rubber+bumper+feet",
+   "All the same thickness."
+  ],
+  [
+   "2",
+   "1.75 mm filament offcuts + CA glue",
+   "",
+   "Alignment pins for gluing the birdfeeder halves."
+  ]
+ ],
+ "checks_passed": 202,
+ "checks_total": 202,
+ "sims": {
+  "dice-simulation": {
+   "trials": 40,
+   "outcomes": {
+    "exited through the front": 197,
+    "never entered the chute": 3
+   }
+  },
+  "dice-simulation-low": {
+   "trials": 40,
+   "outcomes": {
+    "exited through the front": 189,
+    "stuck inside": 11
+   }
+  }
+ },
+ "diameter": 460.0
+}
