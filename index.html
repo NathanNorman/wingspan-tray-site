@@ -33,6 +33,34 @@
   #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; z-index: 5; }
   #lightbox img { max-width: 92vw; max-height: 92vh; }
   #status { font-size: 12px; color: var(--muted); }
+  #picker { position: fixed; z-index: 6; display: none; width: 300px; background: var(--panel); border-radius: 10px; padding: 12px;
+            box-shadow: 0 8px 28px rgba(0,0,0,.5); }
+  #picker h3 { margin: 0 0 8px; font-size: 14px; color: var(--wood); }
+  #picker .sw { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  #picker .sw button { aspect-ratio: 1; border-radius: 50%; border: 2px solid #555; cursor: pointer; padding: 0; background-size: cover; }
+  #picker .sw button.on { border-color: #fff; }
+  #picker .row { display: flex; gap: 6px; margin-top: 10px; }
+  #picker .row button { flex: 1; padding: 6px; border-radius: 6px; border: 1px solid #666; background: transparent; color: var(--ink); cursor: pointer; }
+  #picker .name { font-size: 12px; color: var(--muted); min-height: 16px; margin-top: 6px; }
+  #spinmode { display: none; }
+  /* Phones: the panel becomes a bottom sheet (closed at first so the model has the screen), the colour
+     picker docks along the bottom, and a spin-mode toggle stands in for Shift-drag. */
+  @media (max-width: 700px) {
+    #panel { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 55vh; border-radius: 14px 14px 0 0;
+             padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); transition: transform .25s; }
+    #panel.hidden { transform: translateY(calc(100% + 10px)); }
+    #toggle, #panel.hidden + #toggle { top: auto; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 10px 14px; font-size: 15px; }
+    #panel:not(.hidden) + #toggle { bottom: calc(55vh + 8px); }
+    #spinmode { display: block; position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 2;
+                background: var(--panel); color: var(--ink); border: 1px solid #555; border-radius: 6px; padding: 10px 14px; font-size: 15px; }
+    #panel:not(.hidden) ~ #spinmode { display: none; }
+    #spinmode.on { background: var(--accent); color: #1d1f1a; }
+    #picker { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; border-radius: 14px 14px 0 0; background: #1e201b; z-index: 7;
+              padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+    #picker .sw { grid-template-columns: repeat(7, 1fr); gap: 8px; }
+    .seg button, button { min-height: 40px; }
+    h1 { font-size: 17px; }
+  }
 </style>
 </head>
 <body>
@@ -48,6 +76,10 @@
     <button data-mode="hb" class="on">Hummingbird inserts</button>
     <button data-mode="plain">No hummingbirds</button>
   </div>
+  <div class="seg" id="centre">
+    <button data-centre="cup" class="on">Centre cup</button>
+    <button data-centre="drum">Scoring drum</button>
+  </div>
   <button id="roll" style="width:100%;margin:8px 0;padding:9px;border:0;border-radius:6px;background:var(--wood);color:#1d1f1a;font-weight:600;cursor:pointer">Roll the dice through the birdfeeder</button>
   <div class="seg" id="diceset">
     <button data-set="oceania" class="on">Oceania dice</button>
@@ -58,7 +90,13 @@
   <p class="note">Live physics in your browser (Rapier). It's an approximation: a stuck die here may roll freely on a real print, and vice versa.</p>
   <label><input type="checkbox" id="props" checked> Show game pieces</label>
   <label><input type="checkbox" id="hw" checked> Show screws and keys</label>
-  <p class="note">Drag to orbit, scroll to zoom, right-drag to pan. The bearing is a placeholder shape.</p>
+  <p class="note">Drag to orbit, scroll to zoom, right-drag to pan. The bearing is modelled from the listing photo; confirm its hole spacing before printing.</p>
+  <button id="spin" style="width:100%;margin:4px 0;padding:7px;border:1px solid var(--wood);border-radius:6px;background:transparent;color:var(--wood);cursor:pointer">Spin the tray</button>
+  <p class="note" id="spinhint">Or hold Shift and drag sideways to turn it by hand; let go mid-drag to fling it.</p>
+
+  <h2>Filament colours</h2>
+  <p class="note">Click any printed part to pick its filament. Choices are saved in this browser.</p>
+  <button id="resetcolors" style="width:100%;margin:4px 0;padding:7px;border:1px solid #777;border-radius:6px;background:transparent;color:var(--ink);cursor:pointer">Reset all colours to defaults</button>
 
   <h2>Print files</h2>
   <table id="files"></table>
@@ -74,7 +112,10 @@
   <p id="checks"></p>
 </aside>
 <button id="toggle">Hide panel</button>
+<button id="spinmode">Spin mode: off</button>
 <div id="lightbox"><img alt=""></div>
+<div id="picker"><h3 id="pickpart"></h3><div class="sw" id="swatches"></div><div class="name" id="swname"></div>
+  <div class="row"><button id="pickreset">Default for this part</button><button id="pickclose">Done</button></div></div>
 
 <script type="importmap">
 { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -106,12 +147,14 @@ document.getElementById('checks').textContent =
   `${data.checks_passed} of ${data.checks_total} automated fit and assembly checks pass.` +
   (sim ? ` In ${sim.trials} simulated five-dice drops, ${sim.outcomes['exited through the front'] || 0} dice rolled out of the birdfeeder.` : '');
 const panel = document.getElementById('panel'), toggle = document.getElementById('toggle');
+const phone = matchMedia('(max-width: 700px)').matches;
+if (phone) { panel.classList.add('hidden'); toggle.textContent = 'Show panel'; }
 toggle.onclick = () => { panel.classList.toggle('hidden'); toggle.textContent = panel.classList.contains('hidden') ? 'Show panel' : 'Hide panel'; };
 
 // ---- 3D view
 const holder = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(devicePixelRatio);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));   // phones report 3; 2 looks the same and renders far faster
 renderer.setSize(innerWidth, innerHeight);
 holder.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
@@ -121,6 +164,10 @@ camera.up.set(0, 0, 1);
 camera.position.set(-760, -1100, 900);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(-80, 0, 160);
+if (innerWidth < 700) {                      // narrow portrait screens: centre the tray and back off so it all fits
+  controls.target.set(0, 0, 60);
+  camera.position.set(-900, -1300, 1250);
+}
 controls.zoomSpeed = 10;            // trackpads barely move at the default of 1
 controls.zoomToCursor = true;
 controls.minDistance = 40;
@@ -131,7 +178,7 @@ const sun = new THREE.DirectionalLight(0xffffff, 1.5);
 sun.position.set(300, -400, 800);
 scene.add(sun);
 
-const manifest = await (await fetch('assembly/manifest.json')).json();
+const manifest = await (await fetch('assembly/manifest.json?b=' + data.build)).json();   // ?b= busts stale caches after a rebuild
 const qa = manifest.quarter_angles;
 const out = (deg, r, z) => [r * Math.cos(deg * Math.PI / 180), r * Math.sin(deg * Math.PI / 180), z];
 const quarterOf = n => (n.includes('small-discard') ? 'feeder' : null) || ['cards', 'food-eggs', 'feeder', 'decks'].find(q => n.includes(q)) ||
@@ -140,27 +187,46 @@ const quarterOf = n => (n.includes('small-discard') ? 'feeder' : null) || ['card
 function moveFor(n, g) {
   if (n.startsWith('quarter-')) return out(qa[quarterOf(n)] + 45, 140, 260);
   if (n.startsWith('insert-')) { const m = out(qa[quarterOf(n)] + 45, 140, 260); m[2] += 110; return m; }
-  if (n === 'feeder-tower') { const m = out(qa.feeder + 45, 140, 0); m[2] = 450; return m; }
+  if (n.startsWith('feeder-')) { const m = out(qa.feeder + 45, 140, 0); m[2] = 450; return m; }
+  if (/^(centre-cup|props-duet|scoring-drum|props-drum)/.test(n)) return [0, 0, 380];   // contents ride with the cup / drum
   if (g.startsWith('props')) { const m = out(qa[quarterOf(n)] + 45, 140, 0); m[2] = n.includes('small') ? 400 : 330; return m; }
-  return { screws: [0, 0, 330], keys: [0, 0, 200], hub: [0, 0, 150], 'bearing-placeholder': [0, 0, 80], 'arm-screws': [0, 0, 40] }[n] || [0, 0, 0];
+  return { screws: [0, 0, 330], keys: [0, 0, 200], hub: [0, 0, 150], bearing: [0, 0, 80], 'bearing-screws': [0, 0, 80], 'arm-screws': [0, 0, 40] }[n] || [0, 0, 0];
 }
 const loader = new STLLoader();
 const parts = [];
 let loaded = 0;
 const status = document.getElementById('status');
 await Promise.all(manifest.items.map(async item => {
-  const geo = await loader.loadAsync('assembly/' + item.file);
+  const geo = await loader.loadAsync('assembly/' + item.file + '?b=' + data.build);
   geo.computeVertexNormals();
   const metal = /bearing|screw/.test(item.name);
   const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
     color: new THREE.Color(...item.color), roughness: .8, metalness: metal ? .6 : 0 }));
   scene.add(mesh);
-  parts.push({ item, mesh, move: moveFor(item.name, item.group) });
+  geo.computeBoundingBox();
+  parts.push({ item, mesh, move: moveFor(item.name, item.group), center: geo.boundingBox.getCenter(new THREE.Vector3()) });
   status.textContent = `Loaded ${++loaded} of ${manifest.items.length} parts`;
 }));
 status.textContent = '';
+// Pieces joined to each other also separate: arms slide out along their spokes (screws follow),
+// and the two glued birdfeeder halves part across their seam.
+const partBy = n => parts.find(p => p.item.name === n);
+for (const p of parts) {
+  const n = p.item.name, arm = n.match(/^arm-(?:screws-)?(\d)$/);
+  if (arm) {
+    const c = partBy('arm-' + arm[1]).center, r = Math.hypot(c.x, c.y);
+    p.move = [c.x / r * 90, c.y / r * 90, n.includes('screws') ? 60 : 0];
+  }
+}
+// The birdfeeder comes apart in the order it goes together: roof lifts off, then the drop-in baffles.
+const roofP = partBy('feeder-roof');
+if (roofP) roofP.move = [roofP.move[0], roofP.move[1], roofP.move[2] + 200];
+for (const [n, dz] of [['feeder-baffle-1', 130], ['feeder-baffle-2', 75]]) {
+  const b = partBy(n);
+  if (b) b.move = [b.move[0], b.move[1], b.move[2] + dz];
+}
 
-let mode = 'hb';
+let mode = 'hb', centre = 'cup';
 const slider = document.getElementById('explode');
 function apply() {
   const t = slider.value / 100, e = t * t * (3 - 2 * t);
@@ -180,15 +246,34 @@ function apply() {
     let vis = true;
     if (g === 'insert-hb' || g === 'props-hb') vis = mode === 'hb';
     if (g === 'insert-plain') vis = mode === 'plain';
+    if (g === 'centre-cup' || g === 'props-cup') vis = centre === 'cup';
+    if (g === 'centre-drum' || g === 'props-drum') vis = centre === 'drum';
     if (g.startsWith('props')) vis = vis && props;
     if (g === 'props-tokens') vis = false;        // drawn as textured tokens instead
-    if (['screws', 'keys', 'arm-screws'].includes(n)) vis = hw;
+    if (['screws', 'keys', 'bearing-screws'].includes(n) || n.startsWith('arm-screws')) vis = hw;
     p.mesh.visible = vis;
   }
+  const sc = parts.find(p => p.item.name === 'props-small-cards');      // drawn card faces ride with the cards
+  for (const f of window.__hbFaces || []) {
+    if (sc) f.position.set(sc.move[0] * e, sc.move[1] * e, sc.move[2] * e);
+    f.visible = mode === 'hb' && props;
+  }
+  for (const q of window.__cardQuads || []) {                          // bird card faces and deck backs
+    const pr = parts.find(p => p.item.name === q.userData.rideWith);
+    if (pr) q.position.set(pr.move[0] * e, pr.move[1] * e, pr.move[2] * e);
+    q.visible = props && (!q.userData.centre || q.userData.centre === centre);
+  }
+  const hd = parts.find(p => p.item.name === 'props-small-discard'), hb = window.__hbBack;
+  if (hb) { if (hd) hb.position.set(hd.move[0] * e, hd.move[1] * e, hd.move[2] * e); hb.visible = mode === 'hb' && props; }
 }
 slider.oninput = apply;
 document.getElementById('props').onchange = apply;
 document.getElementById('hw').onchange = apply;
+document.querySelectorAll('#centre button').forEach(b => b.onclick = () => {
+  centre = b.dataset.centre;
+  document.querySelectorAll('#centre button').forEach(x => x.classList.toggle('on', x === b));
+  apply();
+});
 document.querySelectorAll('#mode button').forEach(b => b.onclick = () => {
   mode = b.dataset.mode;
   document.querySelectorAll('#mode button').forEach(x => x.classList.toggle('on', x === b));
@@ -230,17 +315,29 @@ function drawFood(g, food, cx, cy, sz) {           // simple silhouettes, drawn 
       g.save(); g.translate(-22 + i * 17, 16 - i * 10.5); g.rotate(-0.56 + s * 0.75);
       g.beginPath(); g.ellipse(0, -s * 9, 6, 12, 0, 0, 7); g.fill(); g.restore();
     }
-  } else if (food === 'fruit') {
-    g.lineWidth = 4; g.beginPath(); g.moveTo(-34, 30); g.lineTo(0, 0); g.lineTo(10, -26); g.moveTo(0, 0); g.lineTo(28, 2); g.stroke();
-    for (const [x, y] of [[0, 0], [12, -28], [30, 4]]) { g.beginPath(); g.arc(x, y, 13, 0, 7); g.fill(); }
+  } else if (food === 'fruit') {            // three berries on short stems from one branch
+    g.lineCap = 'round'; g.lineWidth = 6; g.beginPath(); g.moveTo(-34, 40); g.quadraticCurveTo(-8, 26, 0, 6); g.stroke();
+    g.lineWidth = 4;
+    const berries = [[-18, -14], [14, -22], [24, 10]];
+    for (const [x, y] of berries) { g.beginPath(); g.moveTo(0, 6); g.quadraticCurveTo((x) * .4, (y + 6) * .6, x, y); g.stroke(); }
+    for (const [x, y] of berries) {
+      g.fillStyle = FOOD_INK.fruit; g.beginPath(); g.arc(x, y, 15, 0, 7); g.fill();
+      g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.arc(x - 5, y - 5, 4.5, 0, 7); g.fill();
+    }
   } else if (food === 'nectar') {
     for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; g.beginPath(); g.arc(Math.cos(a) * 20, Math.sin(a) * 20, 14, 0, 7); g.fill(); }
     g.fillStyle = '#f7d9e4'; g.beginPath(); g.arc(0, 0, 9, 0, 7); g.fill();
-  } else if (food === 'rodent') {
-    g.beginPath(); g.ellipse(0, 6, 32, 18, 0, 0, 7); g.fill();
-    g.beginPath(); g.moveTo(-26, 6); g.lineTo(-46, 12); g.lineTo(-26, 16); g.fill();
-    g.beginPath(); g.arc(-14, -12, 9, 0, 7); g.fill();
-    g.lineWidth = 3; g.beginPath(); g.moveTo(30, 12); g.bezierCurveTo(50, 18, 40, -10, 52, -14); g.stroke();
+  } else if (food === 'rodent') {           // mouse in profile, facing left
+    g.beginPath(); g.ellipse(6, 8, 30, 18, -0.08, 0, 7); g.fill();                    // body
+    g.beginPath(); g.moveTo(-14, -6); g.quadraticCurveTo(-34, -6, -48, 12);           // head tapering to the nose
+    g.quadraticCurveTo(-30, 22, -10, 22); g.fill();
+    g.beginPath(); g.arc(-18, -8, 9, 0, 7); g.fill();                                   // ear
+    g.fillStyle = '#c9a6a6'; g.beginPath(); g.arc(-18, -8, 5, 0, 7); g.fill();
+    g.fillStyle = '#f2e6cc'; g.beginPath(); g.arc(-32, 6, 2.6, 0, 7); g.fill();       // eye
+    g.fillStyle = FOOD_INK.rodent;
+    for (const x of [-10, 18]) { g.beginPath(); g.ellipse(x, 25, 6, 3, 0, 0, 7); g.fill(); }   // feet
+    g.lineWidth = 3.5; g.lineCap = 'round'; g.beginPath(); g.moveTo(34, 14);            // tail
+    g.bezierCurveTo(54, 22, 62, 0, 50, -12); g.stroke();
   }
   g.restore();
 }
@@ -290,6 +387,337 @@ const tokenGroups = Object.entries(pose.tokens).map(([food, list]) => {
   scene.add(mesh); return mesh;
 });
 window.__tokens = tokenGroups;
+
+// ---- Hummingbird display: five Americas hummingbird cards, drawn (not the printed art): corner badge,
+// name and scientific name, the bird in its colours, and the bottom-left box.
+const HB_FACES = [
+  { name: ['Swallow-Tailed', 'Hummingbird'], sci: 'Eupetomena macroura', badge: 'emerald', box: 'egg',
+    head: '#2f55b0', back: '#2f9a5c', belly: '#3d7fc4', wing: '#5a4a3c', tail: '#2c4fa8', bill: 18, curve: 0, forked: true },
+  { name: ['White-Tipped', 'Sicklebill'], sci: 'Eutoxeres aquila', badge: 'diamond', box: 'wild',
+    head: '#2e3328', back: '#2f4a33', belly: '#5d5a4c', wing: '#262a22', tail: '#2f3a2c', bill: 20, curve: 1, streaks: true },
+  { name: ['Horned', 'Sungem'], sci: 'Heliactin bilophus', badge: 'fruit', box: 'wild',
+    head: '#1c1c22', back: '#7fae4c', belly: '#f4f2ec', wing: '#5f7f3e', tail: '#6b8a48', bill: 14, curve: 0, crest: true },
+  { name: ['Stripe-Throated', 'Hermit'], sci: 'Phaethornis striigularis', badge: 'diamond', box: 'card',
+    head: '#9a6a3a', back: '#c06a2c', belly: '#d9853e', wing: '#5a3e2c', tail: '#8a5a32', bill: 22, curve: .5 },
+  { name: ['Amethyst', 'Woodstar'], sci: 'Calliphlox amethystina', badge: 'bloom', box: 'flower',
+    head: '#5f9a54', back: '#5f9a54', belly: '#f2f0ea', wing: '#4a4a40', tail: '#3a3a36', bill: 12, curve: 0, throat: '#c0307a' },
+];
+function rr(g, x, y, w, h, r) { g.beginPath(); g.roundRect(x, y, w, h, r); }
+function hbIcon(g, kind, cx, cy, s) {
+  g.save(); g.translate(cx, cy); g.scale(s / 100, s / 100); g.lineJoin = 'round';
+  if (kind === 'emerald') {
+    g.fillStyle = '#1d8a4a'; g.beginPath(); g.moveTo(-26, -40); g.lineTo(26, -40); g.lineTo(38, -22); g.lineTo(38, 30);
+    g.lineTo(20, 44); g.lineTo(-20, 44); g.lineTo(-38, 30); g.lineTo(-38, -22); g.closePath(); g.fill();
+    g.strokeStyle = '#0f5a2e'; g.lineWidth = 4; g.strokeRect(-20, -24, 40, 52);
+  } else if (kind === 'diamond') {
+    g.fillStyle = '#a9cdee'; g.beginPath(); g.moveTo(-40, -14); g.lineTo(-22, -36); g.lineTo(22, -36); g.lineTo(40, -14);
+    g.lineTo(0, 40); g.closePath(); g.fill();
+    g.strokeStyle = '#6f9cc8'; g.lineWidth = 3; g.beginPath(); g.moveTo(-40, -14); g.lineTo(40, -14);
+    g.moveTo(-12, -36); g.lineTo(-18, -14); g.lineTo(0, 40); g.lineTo(18, -14); g.lineTo(12, -36); g.stroke();
+  } else if (kind === 'fruit') {
+    g.fillStyle = '#ee6a1e'; g.beginPath(); g.moveTo(0, -42);
+    g.bezierCurveTo(26, -10, 34, 10, 30, 22); g.arc(0, 18, 30, .1, Math.PI - .1); g.bezierCurveTo(-34, 10, -26, -10, 0, -42); g.fill();
+  } else if (kind === 'bloom') {
+    g.fillStyle = '#fbfaf4'; g.strokeStyle = '#d6cfb8'; g.lineWidth = 2;
+    for (let i = 0; i < 6; i++) { g.save(); g.rotate(i * Math.PI / 3); g.beginPath(); g.ellipse(0, -22, 13, 20, 0, 0, 7); g.fill(); g.stroke(); g.restore(); }
+    g.fillStyle = '#f2b21e'; g.beginPath(); g.arc(0, 0, 14, 0, 7); g.fill();
+  }
+  g.restore();
+}
+function hbBox(g, kind) {                                       // the power box in the bottom-left corner
+  g.strokeStyle = '#b9b4a6'; g.lineWidth = 2; rr(g, 22, 520, 100, 128, 10); g.stroke();
+  g.fillStyle = '#2e8a6a'; g.fillRect(60, 500, 24, 22); g.beginPath(); g.moveTo(54, 522); g.lineTo(90, 522); g.lineTo(72, 540); g.fill();
+  const cx = 72, cy = 600;
+  if (kind === 'egg') { g.strokeStyle = '#8a8478'; g.lineWidth = 3; g.beginPath(); g.ellipse(cx, cy, 22, 30, 0, 0, 7); g.stroke(); }
+  if (kind === 'wild') {
+    const cols = ['#e2508f', '#ee8a24', '#2b8a78', '#3f86c8', '#c63845', '#8f8a84'];
+    cols.forEach((c, i) => { g.fillStyle = c; g.beginPath(); g.moveTo(cx, cy + 10); g.arc(cx, cy + 10, 26, i * Math.PI / 3, (i + 1) * Math.PI / 3); g.fill(); });
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(cx, cy + 10, 11, 0, 7); g.fill();
+    g.fillStyle = '#7a6a5a'; g.beginPath(); g.moveTo(cx - 16, cy - 20); g.lineTo(cx, cy - 40); g.lineTo(cx + 16, cy - 20); g.fill();
+    g.fillRect(cx - 6, cy - 22, 12, 14);
+  }
+  if (kind === 'card') {
+    g.strokeStyle = '#a8c4c0'; g.lineWidth = 3; rr(g, cx - 20, cy - 28, 40, 56, 5); g.stroke();
+    g.beginPath(); g.moveTo(cx - 10, cy - 14); g.lineTo(cx + 10, cy + 14); g.moveTo(cx + 10, cy - 14); g.lineTo(cx - 10, cy + 14); g.stroke();
+  }
+  if (kind === 'flower') {
+    g.fillStyle = '#e8487a';
+    for (let i = 0; i < 8; i++) { g.save(); g.translate(cx, cy); g.rotate(i * Math.PI / 4); g.beginPath(); g.ellipse(0, -15, 8, 12, 0, 0, 7); g.fill(); g.restore(); }
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(cx, cy, 7, 0, 7); g.fill();
+  }
+}
+function hbBird(g, b) {                                         // perched hummingbird, facing left
+  g.save(); g.translate(250, 400); g.rotate(-.35);
+  g.strokeStyle = '#6a5a48'; g.lineWidth = 9; g.lineCap = 'round';                   // twig
+  g.beginPath(); g.moveTo(-60, 70); g.lineTo(90, 40); g.stroke();
+  g.fillStyle = b.tail;                                                              // tail
+  g.beginPath(); g.moveTo(10, 60); g.lineTo(b.forked ? 40 : 30, 190); g.lineTo(22, 70); g.fill();
+  if (b.forked) { g.beginPath(); g.moveTo(-6, 60); g.lineTo(-4, 200); g.lineTo(8, 66); g.fill(); }
+  g.fillStyle = b.back; g.beginPath(); g.ellipse(4, 0, 34, 70, .08, 0, 7); g.fill();  // body
+  g.fillStyle = b.belly; g.beginPath(); g.ellipse(-12, 6, 20, 54, .1, 0, 7); g.fill();
+  if (b.streaks) { g.strokeStyle = '#e8e2d0'; g.lineWidth = 2;
+    for (let i = 0; i < 9; i++) { g.beginPath(); g.moveTo(-22 + (i % 3) * 8, -30 + i * 9); g.lineTo(-18 + (i % 3) * 8, -24 + i * 9); g.stroke(); } }
+  g.fillStyle = b.wing; g.beginPath(); g.ellipse(18, 18, 18, 60, .18, 0, 7); g.fill();  // folded wing
+  g.fillStyle = b.head; g.beginPath(); g.arc(-4, -78, 26, 0, 7); g.fill();            // head
+  if (b.throat) { g.fillStyle = b.throat; g.beginPath(); g.ellipse(-14, -54, 18, 14, 0, 0, 7); g.fill(); }
+  if (b.crest) { g.fillStyle = '#2f5fd0'; g.beginPath(); g.moveTo(-20, -98); g.lineTo(10, -112); g.lineTo(20, -96); g.fill();
+    g.fillStyle = '#e8a83a'; g.beginPath(); g.moveTo(14, -100); g.lineTo(34, -104); g.lineTo(22, -90); g.fill();
+    g.fillStyle = '#f4f2ec'; g.beginPath(); g.ellipse(-8, -46, 16, 10, 0, 0, 7); g.fill(); }
+  g.fillStyle = '#111'; g.beginPath(); g.arc(-14, -82, 4, 0, 7); g.fill();             // eye
+  g.strokeStyle = '#1a1a1a'; g.lineWidth = 4; g.beginPath(); g.moveTo(-28, -80);       // bill
+  const L = b.bill * 4.6;
+  g.quadraticCurveTo(-28 - L * .6, -84 + b.curve * 10, -28 - L, -76 + b.curve * L * .7); g.stroke();
+  g.restore();
+}
+function hbCardTexture(b) {
+  const c = document.createElement('canvas'); c.width = 440; c.height = 670;
+  const g = c.getContext('2d');
+  g.fillStyle = '#f3f1ea'; rr(g, 0, 0, 440, 670, 26); g.fill();
+  g.save(); rr(g, 0, 0, 440, 670, 26); g.clip();
+  const grad = g.createRadialGradient(64, 64, 10, 64, 64, 90);                      // soft green badge
+  grad.addColorStop(0, '#b8dc6a'); grad.addColorStop(.75, '#c4e27e'); grad.addColorStop(1, 'rgba(196,226,126,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 140, 140);
+  g.restore();
+  hbIcon(g, b.badge, 64, 66, 84);
+  g.strokeStyle = '#b9b4a6'; g.lineWidth = 2; g.strokeRect(140, 24, 284, 112);
+  g.fillStyle = '#2a2a2a'; g.textAlign = 'center';
+  g.font = '600 30px "Avenir Next Condensed", "Arial Narrow", sans-serif';
+  b.name.forEach((line, i) => g.fillText(line.toUpperCase(), 282, 66 + i * 32 - (b.name.length - 1) * 4));
+  g.font = 'italic 22px Georgia, serif'; g.fillStyle = '#4a4a4a';
+  g.fillText(b.sci, 282, 124);
+  g.strokeStyle = '#d5d0c2'; g.beginPath(); g.moveTo(140, 150); g.lineTo(424, 150); g.stroke();
+  hbBird(g, b);
+  hbBox(g, b.box);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+function hbBackTexture() {                                      // card back: green wash, two pale hummingbirds
+  const c = document.createElement('canvas'); c.width = 670; c.height = 440;
+  const g = c.getContext('2d');
+  g.save(); rr(g, 0, 0, 670, 440, 26); g.clip();
+  g.fillStyle = '#5fae8c'; g.fillRect(0, 0, 670, 440);
+  for (let i = 0; i < 70; i++) {                                // watercolour blotches
+    const x = (i * 97) % 670, y = (i * 53) % 440, r = 40 + (i * 37) % 90;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    const tone = i % 3 ? 'rgba(40,120,90,.10)' : 'rgba(170,220,190,.12)';
+    gr.addColorStop(0, tone); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, 2 * r, 2 * r);
+  }
+  g.fillStyle = 'rgba(255,255,255,.75)';
+  for (let i = 0; i < 40; i++) { g.beginPath(); g.arc((i * 151) % 670, (i * 89) % 440, 1 + i % 3, 0, 7); g.fill(); }
+  const bird = (flip) => {                                       // upright silhouette: wings swept up, bill down
+    g.save(); g.translate(335, 220); if (flip) g.rotate(Math.PI); g.translate(-150, 10); g.rotate(.35);
+    g.fillStyle = 'rgba(240,250,245,.72)';
+    g.beginPath(); g.ellipse(0, 20, 20, 62, 0, 0, 7); g.fill();                         // body
+    g.beginPath(); g.arc(4, 92, 16, 0, 7); g.fill();                                    // head
+    g.beginPath(); g.moveTo(-2, 104); g.lineTo(30, 200); g.lineTo(12, 102); g.fill();   // bill
+    g.beginPath(); g.moveTo(-8, -10); g.quadraticCurveTo(-60, -110, -30, -205); g.quadraticCurveTo(-20, -100, 14, -20); g.fill();
+    g.beginPath(); g.moveTo(6, -6); g.quadraticCurveTo(40, -100, 90, -170); g.quadraticCurveTo(50, -80, 20, 10); g.fill();
+    g.beginPath(); g.moveTo(-10, -30); g.lineTo(-26, -90); g.lineTo(-6, -60); g.lineTo(6, -96); g.lineTo(10, -30); g.fill(); // tail
+    g.restore();
+  };
+  bird(false); bird(true);
+  g.restore();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+if (pose.hb_deck) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pose.hb_deck.flatMap(([x, y, z]) => [x, y, z + .05]), 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, 1, 1, 1, 0, 0, 0], 2));
+  geo.setIndex([0, 3, 2, 0, 2, 1]); geo.computeVertexNormals();
+  const back = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: hbBackTexture(), roughness: .85,
+    transparent: true, side: THREE.DoubleSide }));
+  back.userData.rideWith = 'props-small-discard';
+  scene.add(back); window.__hbBack = back;
+}
+// ---- Bird cards: the 3 face-up cards get drawn fronts (layout after the game's card anatomy: habitat and
+// food box, name box, points / nest / eggs column, the bird, wingspan, power band, range and factoid);
+// face-down piles get the bird and bonus card backs. Card stats here are illustrative.
+const BIRD_FACES = [
+  { name: 'American Robin', sci: 'Turdus migratorius', hab: ['forest', 'grassland'], food: ['invertebrate', 'fruit'],
+    pts: 1, nest: 'bowl', eggs: 4, span: 43, power: 'brown', text: 'WHEN ACTIVATED: Tuck 1 card from your hand behind this bird.',
+    shape: 'perch', head: '#3a3a3c', back: '#6a6a66', belly: '#d0642c', bill: '#e2b23a', fact: 'Its song is one of the first heard at dawn.' },
+  { name: 'Barn Owl', sci: 'Tyto alba', hab: ['forest', 'grassland', 'wetland'], food: ['rodent'],
+    pts: 5, nest: 'cavity', eggs: 4, span: 107, power: 'brown', text: 'WHEN ACTIVATED: Roll dice not in the birdfeeder. If any are rodent, cache 1 here.',
+    shape: 'owl', head: '#e9dcc2', back: '#c99a5a', belly: '#f4ece0', bill: '#d8c8b0', fact: 'Hunts by sound alone in total darkness.' },
+  { name: 'Mallard', sci: 'Anas platyrhynchos', hab: ['wetland'], food: ['seed'],
+    pts: 0, nest: 'ground', eggs: 4, span: 89, power: 'brown', text: 'WHEN ACTIVATED: Draw 1 bird card.',
+    shape: 'duck', head: '#1f6a4a', back: '#8a7a68', belly: '#b8b0a4', bill: '#e2c23a', fact: 'Ancestor of most domestic duck breeds.' },
+];
+function habIcon(g, h, x, y, s) {
+  g.save(); g.translate(x, y);
+  g.fillStyle = { forest: '#3f7a4a', grassland: '#d9a63a', wetland: '#3f86c8' }[h]; rr(g, -s / 2, -s / 2, s, s, 4); g.fill();
+  g.strokeStyle = '#fff'; g.fillStyle = '#fff'; g.lineWidth = 2.5;
+  if (h === 'forest') { g.beginPath(); g.moveTo(0, -s * .32); g.lineTo(s * .26, s * .14); g.lineTo(-s * .26, s * .14); g.fill(); g.fillRect(-2, s * .1, 4, s * .2); }
+  if (h === 'grassland') for (const dx of [-8, 0, 8]) { g.beginPath(); g.moveTo(dx, s * .32); g.lineTo(dx, -s * .28); g.stroke(); }
+  if (h === 'wetland') for (const dy of [-6, 4]) { g.beginPath(); g.moveTo(-s * .3, dy); g.quadraticCurveTo(-s * .15, dy - 6, 0, dy); g.quadraticCurveTo(s * .15, dy + 6, s * .3, dy); g.stroke(); }
+  g.restore();
+}
+function nestIcon(g, kind, x, y) {
+  g.strokeStyle = '#6a5a48'; g.fillStyle = '#b39a74'; g.lineWidth = 3;
+  if (kind === 'bowl') { g.beginPath(); g.arc(x, y - 6, 22, .15, Math.PI - .15); g.fill(); g.stroke(); }
+  if (kind === 'cavity') { g.beginPath(); g.arc(x, y, 22, 0, 7); g.fill(); g.fillStyle = '#4a3a2c'; g.beginPath(); g.arc(x, y, 9, 0, 7); g.fill(); }
+  if (kind === 'ground') { g.beginPath(); g.ellipse(x, y + 8, 26, 9, 0, 0, 7); g.fill(); g.stroke(); }
+}
+function birdPic(g, b) {
+  g.save(); g.translate(330, 420);
+  const blob = (c, x, y, rx, ry, r = 0) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 7); g.fill(); };
+  if (b.shape === 'duck') {
+    blob(b.back, 0, 30, 110, 46, 0); blob(b.belly, -10, 46, 80, 26); blob('#4a3f36', 40, 14, 60, 22, -.1);
+    blob(b.head, -100, -30, 34, 30); g.fillStyle = '#fff'; g.fillRect(-112, -2, 30, 6);
+    blob(b.bill, -142, -24, 22, 9); g.fillStyle = '#111'; g.beginPath(); g.arc(-108, -38, 4, 0, 7); g.fill();
+    g.fillStyle = '#2f5aa8'; g.fillRect(30, 20, 30, 10);
+  } else if (b.shape === 'owl') {
+    g.strokeStyle = '#6a5a48'; g.lineWidth = 12; g.beginPath(); g.moveTo(-120, 120); g.lineTo(120, 110); g.stroke();
+    blob(b.back, 0, 20, 70, 100); blob(b.belly, -8, 40, 46, 76);
+    blob(b.head, 0, -90, 62, 56); g.fillStyle = '#f8f4ea'; g.beginPath(); g.moveTo(0, -60); g.bezierCurveTo(-70, -150, -40, -40, 0, -40);
+    g.bezierCurveTo(40, -40, 70, -150, 0, -60); g.fill();
+    g.fillStyle = '#111'; g.beginPath(); g.arc(-20, -96, 7, 0, 7); g.arc(20, -96, 7, 0, 7); g.fill();
+    blob(b.bill, 0, -74, 6, 12);
+  } else {
+    g.strokeStyle = '#6a5a48'; g.lineWidth = 10; g.beginPath(); g.moveTo(-120, 110); g.lineTo(130, 70); g.stroke();
+    g.fillStyle = b.back; g.beginPath(); g.moveTo(40, 40); g.lineTo(150, 110); g.lineTo(60, 10); g.fill();   // tail
+    blob(b.back, 10, 10, 80, 58, -.4); blob(b.belly, -20, 30, 52, 46, -.3);
+    blob(b.head, -70, -50, 38, 34); g.fillStyle = '#fff'; g.beginPath(); g.arc(-80, -56, 9, 0, 7); g.fill();
+    g.fillStyle = '#111'; g.beginPath(); g.arc(-80, -56, 5, 0, 7); g.fill();
+    g.fillStyle = b.bill; g.beginPath(); g.moveTo(-104, -50); g.lineTo(-140, -44); g.lineTo(-104, -40); g.fill();
+  }
+  g.restore();
+}
+function birdFrontTexture(b) {
+  const c = document.createElement('canvas'); c.width = 570; c.height = 870;
+  const g = c.getContext('2d');
+  g.save(); rr(g, 0, 0, 570, 870, 30); g.clip();
+  g.fillStyle = '#f3eee2'; g.fillRect(0, 0, 570, 870);
+  g.fillStyle = '#dcd8d0'; rr(g, 16, 16, 150, 150, 10); g.fill();                    // habitat + food box
+  b.hab.forEach((h, i) => habIcon(g, h, 46 + i * 46, 50, 38));
+  b.food.forEach((f, i) => drawFood(g, f, 50 + i * 54, 120, 44));
+  g.strokeStyle = '#b9b4a6'; g.lineWidth = 2; g.strokeRect(180, 26, 374, 104);        // name box
+  g.fillStyle = '#2a2a2a'; g.textAlign = 'center';
+  g.font = '600 40px "Avenir Next Condensed", "Arial Narrow", sans-serif'; g.fillText(b.name.toUpperCase(), 367, 74);
+  g.font = 'italic 26px Georgia, serif'; g.fillStyle = '#4a4a4a'; g.fillText(b.sci, 367, 112);
+  g.fillStyle = '#2a2a2a'; g.font = '700 56px Georgia, serif'; g.fillText(String(b.pts), 52, 240);   // points
+  g.strokeStyle = '#8a8478'; g.lineWidth = 3; g.beginPath(); g.moveTo(82, 196); g.quadraticCurveTo(100, 220, 84, 250); g.stroke();
+  nestIcon(g, b.nest, 60, 310);
+  for (let i = 0; i < b.eggs; i++) { g.strokeStyle = '#a8a294'; g.lineWidth = 2.5; g.beginPath(); g.ellipse(60, 370 + i * 34, 11, 15, 0, 0, 7); g.stroke(); }
+  birdPic(g, b);
+  g.fillStyle = '#6a6a6a'; g.font = '24px Georgia, serif'; g.textAlign = 'right'; g.fillText(b.span + 'cm', 548, 600);
+  g.fillStyle = { brown: '#b4783a', pink: '#e2a3b6', white: '#f8f6f0' }[b.power]; g.fillRect(0, 618, 570, 136);   // power band
+  g.fillStyle = '#fff'; g.font = '600 26px "Avenir Next Condensed", "Arial Narrow", sans-serif'; g.textAlign = 'left';
+  const words = b.text.split(' '); let line = '', y = 664;
+  for (const w of words) { if (g.measureText(line + w).width > 500) { g.fillText(line, 36, y); line = ''; y += 34; } line += w + ' '; }
+  g.fillText(line, 36, y);
+  g.fillStyle = '#c9c2b2'; rr(g, 26, 772, 92, 70, 6); g.fill();                         // range map
+  g.fillStyle = '#7a7466'; g.font = 'italic 22px Georgia, serif'; g.fillText(b.fact, 134, 816);
+  g.restore();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+function wash(g, w, h, base, dark, light) {
+  g.fillStyle = base; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 60; i++) {
+    const x = (i * 97) % w, y = (i * 131) % h, r = 50 + (i * 37) % 110;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, i % 3 ? dark : light); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, 2 * r, 2 * r);
+  }
+}
+function birdBackTexture() {                                    // pale blue-grey wash with a large white feather
+  const c = document.createElement('canvas'); c.width = 570; c.height = 870;
+  const g = c.getContext('2d');
+  g.save(); rr(g, 0, 0, 570, 870, 30); g.clip();
+  wash(g, 570, 870, '#9fb8c4', 'rgba(70,100,120,.10)', 'rgba(230,240,245,.14)');
+  g.translate(285, 435); g.rotate(-.5);
+  g.fillStyle = 'rgba(250,252,252,.85)';
+  g.beginPath(); g.moveTo(0, -340); g.bezierCurveTo(120, -200, 110, 150, 10, 300); g.lineTo(-10, 300);
+  g.bezierCurveTo(-100, 120, -110, -220, 0, -340); g.fill();
+  g.strokeStyle = 'rgba(150,175,185,.9)'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, -330); g.lineTo(0, 380); g.stroke();
+  g.lineWidth = 1.5;
+  for (let i = -300; i < 280; i += 16) { g.beginPath(); g.moveTo(0, i); g.lineTo(90 - Math.abs(i) / 5, i - 40); g.moveTo(0, i); g.lineTo(-90 + Math.abs(i) / 5, i - 40); g.stroke(); }
+  g.restore();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+function bonusBackTexture() {                                   // sage green wash with pale leaf and berry sprigs
+  const c = document.createElement('canvas'); c.width = 570; c.height = 870;
+  const g = c.getContext('2d');
+  g.save(); rr(g, 0, 0, 570, 870, 30); g.clip();
+  wash(g, 570, 870, '#7f9a6a', 'rgba(60,80,50,.12)', 'rgba(200,215,170,.12)');
+  g.fillStyle = 'rgba(200,214,170,.75)'; g.strokeStyle = 'rgba(200,214,170,.75)';
+  const sprig = (x, y, r, n) => {
+    g.save(); g.translate(x, y); g.rotate(r); g.lineWidth = 5; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -n * 60); g.stroke();
+    for (let i = 1; i <= n; i++) for (const sd of [-1, 1]) { g.save(); g.translate(0, -i * 58); g.rotate(sd * .9);
+      g.beginPath(); g.ellipse(0, -30, 16, 34, 0, 0, 7); g.fill(); g.restore(); }
+    g.restore();
+  };
+  sprig(120, 820, -.3, 5); sprig(470, 520, .5, 4); sprig(300, 300, -1.2, 3);
+  for (const [x, y] of [[330, 600], [360, 630], [345, 660], [180, 180], [210, 150], [440, 120]]) { g.beginPath(); g.arc(x, y, 18, 0, 7); g.fill(); }
+  g.restore();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+function cardQuad(corners, tex, rideWith, lift) {
+  const geo = new THREE.BufferGeometry();
+  const n = new THREE.Vector3().subVectors(new THREE.Vector3(...corners[1]), new THREE.Vector3(...corners[0]))
+    .cross(new THREE.Vector3().subVectors(new THREE.Vector3(...corners[3]), new THREE.Vector3(...corners[0]))).normalize();
+  if (n.z < 0 && lift === 'up') n.negate();
+  const off = n.multiplyScalar(lift === 'up' ? .05 : 0);
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(corners.flatMap(([x, y, z]) => [x + off.x, y + off.y, z + off.z]), 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, 1, 1, 1, 0, 0, 0], 2));
+  geo.setIndex([0, 3, 2, 0, 2, 1]); geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, roughness: .85, transparent: true, side: THREE.DoubleSide }));
+  m.userData.rideWith = rideWith; scene.add(m); return m;
+}
+// ---- End-of-round goal tiles, drawn after the core game's: pale diamond on tan corners, a bird-card icon,
+// and IN <habitat> / WITH <nest> + egg / TOTAL.
+const GOALS = [{ kind: 'in', hab: 'grassland' }, { kind: 'with', nest: 'bowl' }, { kind: 'total' }, { kind: 'in', hab: 'wetland' }];
+function birdCardIcon(g, x, y) {
+  g.fillStyle = '#fff'; g.strokeStyle = '#6a5e52'; g.lineWidth = 4; rr(g, x - 30, y - 42, 60, 84, 6); g.fill(); g.stroke();
+  g.fillStyle = '#5a4e44'; g.beginPath(); g.moveTo(x - 20, y + 8); g.quadraticCurveTo(x - 6, y - 4, x + 2, y - 22);
+  g.quadraticCurveTo(x + 4, y - 4, x + 12, y - 6); g.quadraticCurveTo(x + 22, y - 26, x + 20, y - 8);
+  g.quadraticCurveTo(x + 14, y + 10, x - 4, y + 16); g.closePath(); g.fill();
+}
+function goalTexture(goal) {
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const g = c.getContext('2d');
+  g.fillStyle = '#b9a99a'; g.fillRect(0, 0, 512, 512);
+  g.fillStyle = '#ece9e2'; g.beginPath(); g.moveTo(150, 0); g.lineTo(362, 0); g.lineTo(512, 150); g.lineTo(512, 362);
+  g.lineTo(362, 512); g.lineTo(150, 512); g.lineTo(0, 362); g.lineTo(0, 150); g.closePath(); g.fill();
+  g.fillStyle = '#d3c8bc'; for (const [x, y] of [[0, 0], [512, 0], [512, 512], [0, 512]]) {        // lighter inner corner bands
+    g.beginPath(); g.moveTo(x ? x - 150 : 150, y); g.lineTo(x ? x - 175 : 175, y); g.lineTo(x, y ? y - 175 : 175); g.lineTo(x, y ? y - 150 : 150); g.fill(); }
+  g.fillStyle = '#2a2622'; g.textAlign = 'center'; g.font = '600 40px "Avenir Next Condensed", "Arial Narrow", sans-serif';
+  if (goal.kind === 'total') { g.fillText('TOTAL', 256, 180); birdCardIcon(g, 256, 290); }
+  if (goal.kind === 'in') {
+    birdCardIcon(g, 256, 140); g.fillText('IN', 256, 250);
+    g.save(); g.translate(256, 350); g.rotate(Math.PI / 4);
+    g.fillStyle = goal.hab === 'grassland' ? '#e8a82a' : goal.hab === 'wetland' ? '#3a74c4' : '#3f6a3a';
+    g.fillRect(-48, -48, 96, 96); g.restore();
+    g.strokeStyle = '#fff'; g.fillStyle = '#fff'; g.lineWidth = 5;
+    if (goal.hab === 'wetland') for (const dy of [-14, 4, 22]) { g.beginPath(); g.moveTo(222, 350 + dy);
+      g.quadraticCurveTo(239, 340 + dy, 256, 350 + dy); g.quadraticCurveTo(273, 360 + dy, 290, 350 + dy); g.stroke(); }
+    if (goal.hab === 'grassland') for (const dx of [-16, 0, 16]) { g.beginPath(); g.moveTo(256 + dx, 384);
+      g.quadraticCurveTo(256 + dx * .5, 350, 256 + dx * 1.4, 318); g.stroke(); }
+  }
+  if (goal.kind === 'with') {
+    g.fillStyle = '#8a7666'; g.beginPath(); g.arc(200, 140, 42, 0, 7); g.fill();               // nest badge
+    g.strokeStyle = '#f4efe6'; g.lineWidth = 10; g.beginPath(); g.ellipse(200, 140, 26, 16, 0, 0, 7); g.stroke();
+    birdCardIcon(g, 300, 140); g.fillStyle = '#2a2622'; g.fillText('WITH', 256, 250);
+    g.fillStyle = '#fff'; g.strokeStyle = '#6a5e52'; g.lineWidth = 4; g.beginPath(); g.ellipse(256, 340, 30, 40, 0, 0, 7); g.fill(); g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+const birdBack = birdBackTexture(), bonusBack = bonusBackTexture();
+window.__cardQuads = [
+  ...(pose.bird_faces || []).map((c, i) => cardQuad(c, birdFrontTexture(BIRD_FACES[i % 3]), 'props-bird-cards', 'front')),
+  ...(pose.goal_faces || []).map((c, i) => cardQuad(c, goalTexture(GOALS[i]), 'props-goal-tiles', 'front')),
+  ...(pose.drum_goal_faces || []).map((c, i) => {
+    const m = cardQuad(c, goalTexture(GOALS[i]), 'props-drum-tiles', 'front'); m.userData.centre = 'drum'; return m; }),
+  ...(pose.deck_tops || []).map(d => cardQuad(d.corners, d.kind === 'bonus' ? bonusBack : birdBack, 'props-decks', 'up')),
+];
+window.__hbFaces = (pose.hb_cards || []).map((corners, i) => {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(corners.flatMap(([x, y, z]) => [x, y, z + .05]), 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, 1, 1, 1, 0, 0, 0], 2));
+  geo.setIndex([0, 3, 2, 0, 2, 1]); geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: hbCardTexture(HB_FACES[i % HB_FACES.length]),
+    roughness: .85, transparent: true, side: THREE.DoubleSide }));
+  scene.add(m); return m;
+});
+apply();
 const dieGeo = new RoundedBoxGeometry(pose.die, pose.die, pose.die, 3, 2);
 const dieMeshes = pose.dice_rest.map(([x, y, z, yaw]) => {
   const m = new THREE.Mesh(dieGeo, diceMats[diceSet]);
@@ -333,7 +761,7 @@ function roll() {
   document.getElementById('rollresult').textContent = 'Rolling...';
   world = new RAPIER.World({ x: 0, y: 0, z: -9810 * S });   // 9810 mm/s^2 in physics units
   world.numSolverIterations = 8;
-  ['feeder-tower', 'quarter-feeder', mode === 'hb' ? 'insert-feeder-hb' : 'insert-feeder-plain', 'quarter-cards',
+  ['feeder-tower', 'feeder-roof', 'feeder-baffle-1', 'feeder-baffle-2', 'quarter-feeder', mode === 'hb' ? 'insert-feeder-hb' : 'insert-feeder-plain', 'quarter-cards',
    'quarter-food-eggs', 'quarter-decks'].forEach(colliderFrom);
   world.createCollider(RAPIER.ColliderDesc.cuboid(1000 * S, 1000 * S, 10 * S).setTranslation(0, 0, (pose.tray_z - 10) * S));
   const h = pose.die / 2 * S;
@@ -376,8 +804,159 @@ function physics() {
   }
 }
 
+// ---- Lazy Susan: everything above the bearing turns as one group about the tray's axis. Physics runs in
+// the group's own frame (gravity is along the axis), so dice keep rolling correctly at any angle.
+const spinner = new THREE.Group();
+scene.add(spinner);
+const FIXED = /^(base|arm-|arm-screws-|bearing)/;
+for (const o of [...scene.children]) {
+  if (o === spinner || o.isLight) continue;
+  const p = parts.find(p => p.mesh === o);
+  if (p && FIXED.test(p.item.name)) continue;
+  spinner.attach(o);
+}
+let spinVel = 0, spinDrag = null, spinMode = false;
+const spinBtn = document.getElementById('spinmode');               // phones: one-finger drag spins instead of orbiting
+spinBtn.onclick = () => { spinMode = !spinMode; controls.enableRotate = !spinMode; spinBtn.classList.toggle('on', spinMode); spinBtn.textContent = 'Spin mode: ' + (spinMode ? 'on' : 'off'); };
+if (matchMedia('(pointer: coarse)').matches)
+  document.getElementById('spinhint').textContent = 'Or turn on Spin mode (bottom right) and drag sideways to turn it by hand; let go mid-drag to fling it.';
+document.getElementById('spin').onclick = () => { spinVel += (Math.random() < .5 ? -1 : 1) * (.05 + Math.random() * .02); };
+const cv = renderer.domElement;
+cv.addEventListener('pointerdown', e => {
+  if (!e.shiftKey && !spinMode) return;
+  controls.enabled = false; spinDrag = { x: e.clientX, t: performance.now() }; spinVel = 0;
+  cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove', e => {
+  if (!spinDrag) return;
+  const now = performance.now(), d = (e.clientX - spinDrag.x) * .01;
+  spinner.rotation.z += d;
+  spinVel = d / Math.max(1, now - spinDrag.t) * 16;               // radians per frame, for the fling
+  spinDrag = { x: e.clientX, t: now };
+});
+cv.addEventListener('pointerup', () => { if (spinDrag) { spinDrag = null; controls.enabled = true; } });
+function spinStep() {
+  if (spinDrag) return;
+  spinner.rotation.z += spinVel;
+  spinVel *= .99;                                                  // bearing friction: coasts a few seconds
+  if (Math.abs(spinVel) < 1e-4) spinVel = 0;
+}
+
+// ---- Filament colours: click a printed part, pick a filament. Saved per part in localStorage.
+const PRINTED = /^(quarter-|feeder-|centre-cup$|scoring-drum$|hub$|base$|arm-\d$|keys$|insert-)/;
+const PART_LABEL = n => n.replace(/^arm-(\d)$/, (_, i) => `outrigger arm ${+i + 1}`).replace('feeder-tower', 'birdfeeder body').replace('feeder-roof', 'birdfeeder roof').replace('centre-cup', 'centre cup').replace('scoring-drum', 'scoring drum').replace('feeder-baffle-', 'birdfeeder baffle ')
+  .replace('insert-', 'insert: ').replace('-hb', ' (hummingbird)').replace('-plain', ' (plain)').replace('quarter-', 'quarter: ')
+  .replace('food-eggs', 'food + eggs');
+function canvasTex(draw, size = 256) {
+  const c = document.createElement('canvas'); c.width = c.height = size; draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+const TEX = {
+  wood: () => canvasTex((g, n) => { g.fillStyle = '#b08458'; g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 60; i++) { g.strokeStyle = `rgba(${90 + i % 4 * 10},${55 + i % 3 * 8},30,${.12 + (i % 5) * .04})`; g.lineWidth = 1 + i % 3;
+      g.beginPath(); const y = i * n / 60; g.moveTo(0, y); g.bezierCurveTo(n * .3, y + 6 * Math.sin(i), n * .7, y - 6 * Math.cos(i), n, y); g.stroke(); } }),
+  marble: () => canvasTex((g, n) => { g.fillStyle = '#ecebe6'; g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 14; i++) { g.strokeStyle = `rgba(90,90,95,${.08 + (i % 4) * .05})`; g.lineWidth = 1 + i % 3; g.beginPath();
+      let x = (i * 53) % n, y = 0; g.moveTo(x, y); while (y < n) { x += Math.sin(y * .05 + i) * 9; y += 12; g.lineTo(x, y); } g.stroke(); } }),
+  carbon: () => canvasTex((g, n) => { g.fillStyle = '#1c1c1e'; g.fillRect(0, 0, n, n);
+    for (let y = 0; y < n; y += 8) for (let x = 0; x < n; x += 8) { g.fillStyle = (x + y) % 16 ? '#2a2a2d' : '#161618'; g.fillRect(x, y, 8, 8); } }),
+  rainbow: () => canvasTex((g, n) => { const gr = g.createLinearGradient(0, 0, n, 0);
+    ['#e84a4a', '#f29a3a', '#f2d64a', '#58c26a', '#4a8ae8', '#9a5ae0', '#e84a4a'].forEach((c, i, a) => gr.addColorStop(i / (a.length - 1), c));
+    g.fillStyle = gr; g.fillRect(0, 0, n, n); }),
+};
+const FILAMENTS = [
+  { id: 'black', name: 'Black', c: '#1d1d1f' }, { id: 'white', name: 'White', c: '#f2f2ee' },
+  { id: 'grey', name: 'Grey', c: '#8a8c8e' }, { id: 'beige', name: 'Beige', c: '#d9c6a2' },
+  { id: 'brown', name: 'Brown', c: '#6b4a32' }, { id: 'red', name: 'Red', c: '#c3262e' },
+  { id: 'orange', name: 'Orange', c: '#ef7a22' }, { id: 'yellow', name: 'Yellow', c: '#f3cf2c' },
+  { id: 'olive', name: 'Olive', c: '#7a7c3a' }, { id: 'green', name: 'Green', c: '#2f9a48' },
+  { id: 'forest', name: 'Forest green', c: '#22553a' }, { id: 'sage', name: 'Matte sage', c: '#9fb09a', rough: 1 },
+  { id: 'teal', name: 'Teal', c: '#1f8a8a' }, { id: 'sky', name: 'Sky blue', c: '#7ab8e6' },
+  { id: 'blue', name: 'Blue', c: '#2a5cc0' }, { id: 'navy', name: 'Navy', c: '#1f2d5a' },
+  { id: 'purple', name: 'Purple', c: '#6a3a9a' }, { id: 'pink', name: 'Pink', c: '#ee8ab0' },
+  { id: 'silk-gold', name: 'Silk gold', c: '#d4a43a', metal: .7, rough: .3 },
+  { id: 'silk-silver', name: 'Silk silver', c: '#c8cacc', metal: .75, rough: .28 },
+  { id: 'silk-copper', name: 'Silk copper', c: '#c0703a', metal: .7, rough: .3 },
+  { id: 'clear', name: 'Translucent clear PETG', c: '#e8f0f2', opacity: .45, rough: .15 },
+  { id: 'clear-blue', name: 'Translucent blue PETG', c: '#5aa0e6', opacity: .55, rough: .15 },
+  { id: 'glow', name: 'Glow in the dark', c: '#d8f2c8', glow: '#7dff8a' },
+  { id: 'wood', name: 'Wood fill', c: '#ffffff', tex: 'wood', rough: .95 },
+  { id: 'marble', name: 'Marble', c: '#ffffff', tex: 'marble' },
+  { id: 'carbon', name: 'Carbon fibre', c: '#ffffff', tex: 'carbon', rough: .55 },
+  { id: 'rainbow', name: 'Rainbow silk', c: '#ffffff', tex: 'rainbow', metal: .4, rough: .35 },
+];
+const texCache = {};
+function boxUV(geo) {                                              // textures need UVs; STLs have none
+  if (geo.attributes.uv) return;
+  const p = geo.attributes.position, n = geo.attributes.normal, uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) {
+    const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i));
+    const [u, v] = az >= ax && az >= ay ? [p.getX(i), p.getY(i)] : ax >= ay ? [p.getY(i), p.getZ(i)] : [p.getX(i), p.getZ(i)];
+    uv[2 * i] = u / 60; uv[2 * i + 1] = v / 60;
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+function filamentMaterial(f) {
+  const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(f.c), roughness: f.rough ?? .7, metalness: f.metal ?? 0 });
+  if (f.opacity) { m.transparent = true; m.opacity = f.opacity; m.depthWrite = false; }
+  if (f.glow) { m.emissive = new THREE.Color(f.glow); m.emissiveIntensity = .45; }
+  if (f.tex) m.map = texCache[f.tex] ||= TEX[f.tex]();
+  return m;
+}
+const printed = parts.filter(p => PRINTED.test(p.item.name));
+printed.forEach(p => p.defaultMat = p.mesh.material);
+const SAVE_KEY = 'wingspan-tray-filaments';
+let saved = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
+function setFilament(p, id) {
+  const f = FILAMENTS.find(f => f.id === id);
+  if (f && f.tex) boxUV(p.mesh.geometry);
+  p.mesh.material = f ? filamentMaterial(f) : p.defaultMat;
+  if (f) saved[p.item.name] = id; else delete saved[p.item.name];
+  localStorage.setItem(SAVE_KEY, JSON.stringify(saved));
+}
+for (const p of printed) if (saved[p.item.name]) setFilament(p, saved[p.item.name]);
+const picker = document.getElementById('picker'), sw = document.getElementById('swatches');
+let picking = null;
+function swatchStyle(f) {
+  if (f.tex) return `background-image:url(${(texCache[f.tex] ||= TEX[f.tex]()).image.toDataURL()})`;
+  if (f.glow) return `background:${f.c};box-shadow:0 0 8px ${f.glow}`;
+  if (f.metal) return `background:linear-gradient(135deg,#fff8 0%,${f.c} 45%,${f.c} 60%,#0005 100%)`;
+  if (f.opacity) return `background:${f.c};opacity:.6`;
+  return `background:${f.c}`;
+}
+sw.innerHTML = FILAMENTS.map(f => `<button data-id="${f.id}" title="${f.name}" style="${swatchStyle(f)}"></button>`).join('');
+const swname = document.getElementById('swname');
+sw.onmouseover = e => { const f = FILAMENTS.find(f => f.id === e.target.dataset.id); if (f) swname.textContent = f.name; };
+sw.onclick = e => {
+  const id = e.target.dataset.id; if (!id || !picking) return;
+  setFilament(picking, id);
+  sw.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.id === id));
+};
+document.getElementById('pickreset').onclick = () => { if (picking) setFilament(picking, null); sw.querySelectorAll('button').forEach(b => b.classList.remove('on')); };
+document.getElementById('pickclose').onclick = () => { picker.style.display = 'none'; picking = null; };
+document.getElementById('resetcolors').onclick = () => { for (const p of printed) setFilament(p, null); saved = {}; localStorage.removeItem(SAVE_KEY); };
+const ray = new THREE.Raycaster();
+let down = null;
+cv.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; });
+cv.addEventListener('pointerup', e => {
+  if (!down || e.shiftKey || spinMode || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) return;   // a drag, not a click
+  const r = cv.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
+  const hits = ray.intersectObjects(scene.children, true).filter(h => h.object.visible);
+  const hit = hits[0] && printed.find(p => p.mesh === hits[0].object);       // nearest thing under the cursor
+  if (!hit) { picker.style.display = 'none'; picking = null; return; }
+  picking = hit;
+  document.getElementById('pickpart').textContent = PART_LABEL(picking.item.name);
+  sw.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.id === saved[picking.item.name]));
+  swname.textContent = '';
+  picker.style.left = Math.min(e.clientX + 12, innerWidth - 316) + 'px';
+  picker.style.top = Math.min(e.clientY + 12, innerHeight - 260) + 'px';
+  picker.style.display = 'block';
+});
+window.__spinner = spinner;
+
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
-(function loop() { physics(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+(function loop() { physics(); spinStep(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
 </script>
 </body>
 </html>

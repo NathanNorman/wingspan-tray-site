@@ -12,21 +12,35 @@
    "name": "base",
    "qty": "1",
    "note": "5 walls or 40% infill.",
-   "mb": 0.65
+   "mb": 0.68
   },
   {
-   "file": "stl/feeder-half-a.stl",
-   "name": "feeder-half-a",
+   "file": "stl/centre-cup.stl",
+   "name": "centre-cup",
    "qty": "1",
-   "note": "Birdfeeder half. Lies on its side wall; glue to half B.",
-   "mb": 0.03
+   "note": "Drops into the round well in the middle of the assembled tray. Prints upright.",
+   "mb": 0.55
   },
   {
-   "file": "stl/feeder-half-b.stl",
-   "name": "feeder-half-b",
+   "file": "stl/feeder-baffles.stl",
+   "name": "feeder-baffles",
+   "qty": "1 plate",
+   "note": "Two baffles, printed flat. Drop them in from the top onto the ledges inside, lower one first.",
+   "mb": 0.0
+  },
+  {
+   "file": "stl/feeder-roof.stl",
+   "name": "feeder-roof",
    "qty": "1",
-   "note": "Birdfeeder half (mirror of A).",
-   "mb": 0.03
+   "note": "Closed lift-off roof. Prints upright on its eave strips; lips under its ends hug the gables.",
+   "mb": 0.01
+  },
+  {
+   "file": "stl/feeder-tower.stl",
+   "name": "feeder-tower",
+   "qty": "1",
+   "note": "Birdfeeder body: back, sides and front in one piece. Prints upright, no supports.",
+   "mb": 0.04
   },
   {
    "file": "stl/fit-test-coupon.stl",
@@ -40,7 +54,7 @@
    "name": "hub",
    "qty": "1",
    "note": "Printed top-down. 5 walls or 40% infill (screws bite into it).",
-   "mb": 0.34
+   "mb": 0.36
   },
   {
    "file": "stl/insert-cards-hummingbird.stl",
@@ -82,21 +96,21 @@
    "name": "quarter-cards",
    "qty": "1",
    "note": "Bird-card stands and goal ledge. Floor down.",
-   "mb": 1.59
+   "mb": 1.87
   },
   {
    "file": "stl/quarter-decks.stl",
    "name": "quarter-decks",
    "qty": "1",
    "note": "Deck and discard wells. Floor down.",
-   "mb": 0.56
+   "mb": 0.85
   },
   {
    "file": "stl/quarter-feeder.stl",
    "name": "quarter-feeder",
    "qty": "1",
    "note": "Birdfeeder dish and rolling area. Floor down.",
-   "mb": 0.93
+   "mb": 1.21
   },
   {
    "file": "stl/quarter-food-eggs.stl",
@@ -104,6 +118,13 @@
    "qty": "1",
    "note": "Food bins and egg bin. Floor down.",
    "mb": 1.27
+  },
+  {
+   "file": "stl/scoring-drum.stl",
+   "name": "scoring-drum",
+   "qty": "1",
+   "note": "Alternative to the centre cup: round-scoring drum. Drop 8 mm action cubes into the columns; ties stack.",
+   "mb": 0.47
   }
  ],
  "hardware": [
@@ -130,31 +151,26 @@
    "Rubber bumper feet, 12 mm or smaller",
    "https://www.amazon.com/s?k=12mm+rubber+bumper+feet",
    "All the same thickness."
-  ],
-  [
-   "2",
-   "1.75 mm filament offcuts + CA glue",
-   "",
-   "Alignment pins for gluing the birdfeeder halves."
   ]
  ],
- "checks_passed": 196,
- "checks_total": 196,
+ "checks_passed": 230,
+ "checks_total": 230,
  "sims": {
   "dice-simulation": {
    "trials": 40,
    "outcomes": {
-    "exited through the front": 197,
-    "never entered the chute": 3
+    "exited through the front": 196,
+    "never entered the chute": 1,
+    "stuck inside": 3
    }
   },
   "dice-simulation-low": {
    "trials": 40,
    "outcomes": {
-    "exited through the front": 189,
-    "stuck inside": 11
+    "exited through the front": 200
    }
   }
  },
- "diameter": 460.0
+ "diameter": 460.0,
+ "build": 1791338107
 }
