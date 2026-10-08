@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Birdfeeder storage: two ways</title>
+<style>
+  body { margin: 0; background: #23251f; color: #e9e4d6; font: 13px/1.4 -apple-system, sans-serif; overflow: hidden; }
+  #view { position: fixed; inset: 0; }
+  #caps { position: fixed; top: 10px; left: 10px; right: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cap { background: rgba(30,32,27,.88); border-radius: 8px; padding: 8px 10px; }
+  .cap h2 { margin: 0 0 3px; font-size: 14px; color: #c9b48c; }
+  .cap p { margin: 2px 0; color: #b9b4a2; }
+  #key { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(30,32,27,.88);
+         border-radius: 8px; padding: 7px 12px; color: #b9b4a2; text-align: center; }
+  button { background: #c9b48c; border: 0; border-radius: 6px; padding: 5px 12px; margin-left: 8px; cursor: pointer; }
+</style></head><body>
+<div id="view"></div>
+<div id="caps">
+  <div class="cap"><h2>1. Notch the rim fillet</h2><p>The birdfeeder is unchanged. A notch in the rim's floor fillet makes room for the roof corner.</p><p id="m-notch"></p></div>
+  <div class="cap"><h2>2. Shave the birdfeeder</h2><p>The body is 11 mm shorter: eave, loading door and ramp drop 11 mm, baffles drop 11 and 6 mm. No notch.</p><p id="m-shave"></p></div>
+</div>
+<div id="key">The feeder quarter on its own. The birdfeeder lies face down, roof on, base against the socket's back wall, gripped by the side walls.
+  <button id="anim">Stand it up / lay it down</button></div>
+<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(Math.min(devicePixelRatio, 2));
+r.setSize(innerWidth, innerHeight); document.getElementById('view').appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x23251f);
+const cam = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 1, 8000); cam.up.set(0, 0, 1);
+const ctl = new OrbitControls(cam, r.domElement); ctl.zoomSpeed = 10; ctl.zoomToCursor = true;
+scene.add(new THREE.HemisphereLight(0xfff8ec, 0x3a3a30, 1.5));
+const sun = new THREE.DirectionalLight(0xffffff, 1.3); sun.position.set(-300, -500, 700); scene.add(sun);
+const meta = await (await fetch('stow-demo/demo.json?' + Date.now())).json();
+const loader = new STLLoader(), toggles = [];
+const mat = (c, o = 1) => new THREE.MeshStandardMaterial({ color: c, roughness: .75, side: THREE.DoubleSide, transparent: o < 1, opacity: o });
+// the quarter spans x, y in 0..230; put the two side by side along x
+const order = [['notch', -260], ['shave', 20]];
+for (const [mode, dx] of order) {
+  const m = meta[mode];
+  document.getElementById('m-' + mode).textContent = `Eave ${m.eave} mm; body ${m.height} mm tall standing.`;
+  const grp = new THREE.Group(); grp.position.x = dx; scene.add(grp);
+  const add = async (part, col, o) => {
+    const g = await loader.loadAsync(`stow-demo/${mode}-${part}.stl?${Date.now()}`); g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, mat(col, o)); grp.add(mesh); return mesh;
+  };
+  await add('quarter', 0xd8cdb4);
+  const body = await add('body', 0xeee6d2), roof = await add('roof', 0x9fb59f);
+  const up = await add('upright', 0xeee6d2, 0.35); up.visible = false;
+  toggles.push({ body, roof, up });
+}
+cam.position.set(-20, 700, 380); ctl.target.set(-20, 120, 30); ctl.update();
+let upright = false;
+document.getElementById('anim').onclick = () => {
+  upright = !upright;
+  for (const t of toggles) { t.body.visible = t.roof.visible = !upright; t.up.visible = upright; t.up.material.opacity = upright ? 1 : .35; }
+};
+(function loop() { r.render(scene, cam); requestAnimationFrame(loop); })();
+addEventListener('resize', () => { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); r.setSize(innerWidth, innerHeight); });
+</script></body></html>

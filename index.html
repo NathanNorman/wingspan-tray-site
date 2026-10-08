@@ -76,10 +76,11 @@
     <button data-mode="hb" class="on">Hummingbird inserts</button>
     <button data-mode="plain">No hummingbirds</button>
   </div>
-  <div class="seg" id="centre">
-    <button data-centre="cup" class="on">Centre cup</button>
-    <button data-centre="drum">Scoring drum</button>
+  <div id="drumctl">
+    <div class="seg"><button id="twist">Twist sleeve to release</button><button id="liftbtn">Raise the tile lift</button></div>
+    <p class="note" id="drumnote">Play position: the sleeve covers one edge of every column, so the cubes stay in.</p>
   </div>
+  <button id="stow" style="width:100%;margin:8px 0 0;padding:9px;border:1px solid var(--wood);border-radius:6px;background:transparent;color:var(--wood);font-weight:600;cursor:pointer">Pack up: lay the birdfeeder down, dice to the outside area</button>
   <button id="roll" style="width:100%;margin:8px 0;padding:9px;border:0;border-radius:6px;background:var(--wood);color:#1d1f1a;font-weight:600;cursor:pointer">Roll the dice through the birdfeeder</button>
   <div class="seg" id="diceset">
     <button data-set="oceania" class="on">Oceania dice</button>
@@ -90,6 +91,7 @@
   <p class="note">Live physics in your browser (Rapier). It's an approximation: a stuck die here may roll freely on a real print, and vice versa.</p>
   <label><input type="checkbox" id="props" checked> Show game pieces</label>
   <label><input type="checkbox" id="hw" checked> Show screws and keys</label>
+  <p class="note">Nothing is parked off the board right now.</p>
   <p class="note">Drag to orbit, scroll to zoom, right-drag to pan. The bearing is modelled from the listing photo; confirm its hole spacing before printing.</p>
   <button id="spin" style="width:100%;margin:4px 0;padding:7px;border:1px solid var(--wood);border-radius:6px;background:transparent;color:var(--wood);cursor:pointer">Spin the tray</button>
   <p class="note" id="spinhint">Or hold Shift and drag sideways to turn it by hand; let go mid-drag to fling it.</p>
@@ -188,7 +190,8 @@ function moveFor(n, g) {
   if (n.startsWith('quarter-')) return out(qa[quarterOf(n)] + 45, 140, 260);
   if (n.startsWith('insert-')) { const m = out(qa[quarterOf(n)] + 45, 140, 260); m[2] += 110; return m; }
   if (n.startsWith('feeder-')) { const m = out(qa.feeder + 45, 140, 0); m[2] = 450; return m; }
-  if (/^(centre-cup|props-duet|scoring-drum|props-drum)/.test(n)) return [0, 0, 380];   // contents ride with the cup / drum
+  if (n === 'drum-lift') return [0, 0, 470];                                       // lift rises out of the drum
+  if (/^(centre-cup|props-duet|scoring-drum|drum-sleeve|props-drum)/.test(n)) return [0, 0, 380];   // contents ride with the cup / drum
   if (g.startsWith('props')) { const m = out(qa[quarterOf(n)] + 45, 140, 0); m[2] = n.includes('small') ? 400 : 330; return m; }
   return { screws: [0, 0, 330], keys: [0, 0, 200], hub: [0, 0, 150], bearing: [0, 0, 80], 'bearing-screws': [0, 0, 80], 'arm-screws': [0, 0, 40] }[n] || [0, 0, 0];
 }
@@ -226,7 +229,9 @@ for (const [n, dz] of [['feeder-baffle-1', 130], ['feeder-baffle-2', 75]]) {
   if (b) b.move = [b.move[0], b.move[1], b.move[2] + dz];
 }
 
-let mode = 'hb', centre = 'cup';
+let mode = 'hb', centre = 'drum';   // the scoring drum is the permanent centre piece
+// Scoring drum mechanisms: sleeve twist (0 = play, 1 = release) and tile lift (0 = down, 1 = up)
+const drumState = { twist: 0, lift: 0, stow: 0 }, drumTarget = { twist: 0, lift: 0, stow: 0 };   // stow: birdfeeder laid down
 const slider = document.getElementById('explode');
 function apply() {
   const t = slider.value / 100, e = t * t * (3 - 2 * t);
@@ -243,6 +248,15 @@ function apply() {
   for (const p of parts) {
     const g = p.item.group, n = p.item.name;
     p.mesh.position.set(p.move[0] * e, p.move[1] * e, p.move[2] * e);
+    const dk = manifest.tower_pose.drum;
+    if (dk && n === 'drum-sleeve') p.mesh.rotation.z = -dk.twist * Math.PI / 180 * drumState.twist;   // back to release
+    if (dk && (n === 'drum-lift' || n === 'props-drum-spares')) p.mesh.position.z += dk.lift_travel * drumState.lift;
+    if (n.startsWith('feeder-') && window.__stowMatrix) {             // tip the birdfeeder face down into its socket
+      p.mesh.matrixAutoUpdate = drumState.stow === 0;
+      if (drumState.stow > 0) p.mesh.matrix.makeTranslation(p.mesh.position.x, p.mesh.position.y, p.mesh.position.z)
+        .multiply(window.__stowMatrix(drumState.stow));
+      else p.mesh.updateMatrix();
+    }
     let vis = true;
     if (g === 'insert-hb' || g === 'props-hb') vis = mode === 'hb';
     if (g === 'insert-plain') vis = mode === 'plain';
@@ -269,11 +283,6 @@ function apply() {
 slider.oninput = apply;
 document.getElementById('props').onchange = apply;
 document.getElementById('hw').onchange = apply;
-document.querySelectorAll('#centre button').forEach(b => b.onclick = () => {
-  centre = b.dataset.centre;
-  document.querySelectorAll('#centre button').forEach(x => x.classList.toggle('on', x === b));
-  apply();
-});
 document.querySelectorAll('#mode button').forEach(b => b.onclick = () => {
   mode = b.dataset.mode;
   document.querySelectorAll('#mode button').forEach(x => x.classList.toggle('on', x === b));
@@ -287,12 +296,26 @@ await RAPIER.init();
 const pose = manifest.tower_pose;
 const S = 0.05;                                   // mm -> physics units (20 mm per unit)
 function towerToWorld(x, y, z) {                  // tower coordinates -> assembled tray coordinates (mm)
-  const a = Math.PI / 4, b = pose.feeder_angle * Math.PI / 180;
-  let u = x * Math.cos(a) - y * Math.sin(a) + pose.feed_d * Math.cos(a);
-  let v = x * Math.sin(a) + y * Math.cos(a) + pose.feed_d * Math.sin(a);
+  const [rot, px, py] = pose.tower_place, a = rot * Math.PI / 180, b = pose.feeder_angle * Math.PI / 180;
+  let u = x * Math.cos(a) - y * Math.sin(a) + px;
+  let v = x * Math.sin(a) + y * Math.cos(a) + py;
   return [u * Math.cos(b) - v * Math.sin(b), u * Math.sin(b) + v * Math.cos(b), z + pose.floor + pose.tray_z];
 }
 let world = null, dice = [], rolling = false;
+// Stowing: in tower coordinates the body turns 90 degrees about y (top toward the front) and drops so its
+// front face rests on the floor, base against the socket's back wall, roof eaves lifting it a little.
+window.__stowMatrix = t => {
+  const [rot, px, py] = pose.tower_place, hx = pose.depth / 2;
+  const W = new THREE.Matrix4().makeTranslation(0, 0, pose.floor + pose.tray_z)
+    .multiply(new THREE.Matrix4().makeRotationZ(pose.feeder_angle * Math.PI / 180))
+    .multiply(new THREE.Matrix4().makeTranslation(px, py, 0))
+    .multiply(new THREE.Matrix4().makeRotationZ(rot * Math.PI / 180));
+  const e = t * t * (3 - 2 * t);
+  const lift = Math.sin(e * Math.PI) * 30;                     // swing it up and over rather than through the floor
+  const Sm = new THREE.Matrix4().makeTranslation(-hx * e, 0, (hx + 0.3 + pose.stow_lift) * e + lift)
+    .multiply(new THREE.Matrix4().makeRotationY(e * Math.PI / 2));
+  return W.clone().multiply(Sm).multiply(W.clone().invert());
+};
 // ---- Wingspan food dice. Faces follow the game: material order is +x, +y, -x, -y (the four sides, in
 // ring order so opposite faces stay opposite), then +z (top) and -z (bottom).
 const DICE_SETS = {
@@ -665,11 +688,18 @@ function cardQuad(corners, tex, rideWith, lift) {
 // ---- End-of-round goal tiles, drawn after the core game's: pale diamond on tan corners, a bird-card icon,
 // and IN <habitat> / WITH <nest> + egg / TOTAL.
 const GOALS = [{ kind: 'in', hab: 'grassland' }, { kind: 'with', nest: 'bowl' }, { kind: 'total' }, { kind: 'in', hab: 'wetland' }];
-function birdCardIcon(g, x, y) {
+function birdCardIcon(g, x, y) {                 // card with a flying-bird silhouette, as on the goal tiles
   g.fillStyle = '#fff'; g.strokeStyle = '#6a5e52'; g.lineWidth = 4; rr(g, x - 30, y - 42, 60, 84, 6); g.fill(); g.stroke();
-  g.fillStyle = '#5a4e44'; g.beginPath(); g.moveTo(x - 20, y + 8); g.quadraticCurveTo(x - 6, y - 4, x + 2, y - 22);
-  g.quadraticCurveTo(x + 4, y - 4, x + 12, y - 6); g.quadraticCurveTo(x + 22, y - 26, x + 20, y - 8);
-  g.quadraticCurveTo(x + 14, y + 10, x - 4, y + 16); g.closePath(); g.fill();
+  g.save(); g.translate(x, y + 4); g.fillStyle = '#5a4e44';
+  g.beginPath(); g.ellipse(0, 6, 15, 7, -0.25, 0, 7); g.fill();                        // body
+  g.beginPath(); g.arc(-15, 0, 6, 0, 7); g.fill();                                     // head
+  g.beginPath(); g.moveTo(-20, -1); g.lineTo(-27, 2); g.lineTo(-20, 3); g.fill();      // beak
+  g.beginPath(); g.moveTo(12, 8); g.lineTo(25, 2); g.lineTo(23, 10); g.lineTo(26, 15); g.lineTo(11, 12); g.fill();   // tail
+  g.beginPath(); g.moveTo(-6, 4); g.quadraticCurveTo(-4, -20, 12, -30);                // raised wing
+  g.quadraticCurveTo(8, -16, 10, -6); g.quadraticCurveTo(6, 2, 4, 6); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(-2, 2); g.quadraticCurveTo(4, -12, 20, -18);                // far wing, behind
+  g.quadraticCurveTo(14, -8, 8, 4); g.closePath(); g.globalAlpha = .7; g.fill(); g.globalAlpha = 1;
+  g.restore();
 }
 function goalTexture(goal) {
   const c = document.createElement('canvas'); c.width = c.height = 512;
@@ -757,17 +787,20 @@ function colliderFrom(name) {
   world.createCollider(RAPIER.ColliderDesc.trimesh(v, idx, flags).setFriction(0.4).setRestitution(0.35));
 }
 function roll() {
+  if (drumTarget.stow) unstow();
   slider.value = 0; apply();                      // physics runs on the assembled tray
   document.getElementById('rollresult').textContent = 'Rolling...';
   world = new RAPIER.World({ x: 0, y: 0, z: -9810 * S });   // 9810 mm/s^2 in physics units
   world.numSolverIterations = 8;
-  ['feeder-tower', 'feeder-roof', 'feeder-baffle-1', 'feeder-baffle-2', 'quarter-feeder', mode === 'hb' ? 'insert-feeder-hb' : 'insert-feeder-plain', 'quarter-cards',
+  ['feeder-tower', 'feeder-roof', 'feeder-baffle-1', 'feeder-baffle-2', 'bird-shoe', 'bird-shoe-ramp', 'quarter-feeder', 'quarter-cards',
    'quarter-food-eggs', 'quarter-decks'].forEach(colliderFrom);
   world.createCollider(RAPIER.ColliderDesc.cuboid(1000 * S, 1000 * S, 10 * S).setTranslation(0, 0, (pose.tray_z - 10) * S));
   const h = pose.die / 2 * S;
   const spots = [[-16, -14, 112], [-16, 14, 113], [4, -14, 118], [4, 14, 119], [-8, 0, 142]];
   dice = spots.map(([x, y, z], k) => {
-    const [wx, wy, wz] = towerToWorld(x + (Math.random() - .5) * 4, y + (Math.random() - .5) * 4, z);
+    const [wx, wy, wz] = pose.ramp_spawn && pose.ramp_spawn.length
+      ? [pose.ramp_spawn[k][0] + (Math.random() - .5) * 3, pose.ramp_spawn[k][1] + (Math.random() - .5) * 3, pose.ramp_spawn[k][2]]   // onto the shoe's ramp
+      : towerToWorld(x + (Math.random() - .5) * 4, y + (Math.random() - .5) * 4, z);
     const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.random() * .7, Math.random() * .7, Math.random() * 6.3));
     const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(wx * S, wy * S, wz * S)
       .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }).setCcdEnabled(true).setCanSleep(false));
@@ -781,6 +814,25 @@ function roll() {
   window.__settle = setTimeout(() => { rolling = false; showResult(); }, 14000);
 }
 document.getElementById('roll').onclick = roll;
+const stowBtn = document.getElementById('stow');
+function unstow() {
+  drumTarget.stow = drumState.stow = 0; apply();
+  stowBtn.textContent = 'Pack up: lay the birdfeeder down, dice to the outside area';
+}
+stowBtn.onclick = () => {
+  if (drumTarget.stow) { drumTarget.stow = 0; stowBtn.textContent = 'Pack up: lay the birdfeeder down, dice to the outside area'; return; }
+  slider.value = 0;
+  world = null; dice = []; rolling = false; clearTimeout(window.__settle);   // stop any roll in progress
+  pose.dice_stow.forEach(([x, y, z, yaw], k) => {
+    const m = dieMeshes[k]; if (!m) return;
+    m.quaternion.setFromEuler(new THREE.Euler(0, 0, yaw * Math.PI / 180));
+    m.position.set(x, y, z); m.userData.base = m.position.clone();
+  });
+  drumTarget.stow = 1;
+  stowBtn.textContent = 'Stand the birdfeeder back up';
+  document.getElementById('rollresult').textContent = '';
+  apply();
+};
 document.getElementById('tap').onclick = () => {
   if (!world) return;
   for (const d of dice) {
@@ -808,7 +860,7 @@ function physics() {
 // the group's own frame (gravity is along the axis), so dice keep rolling correctly at any angle.
 const spinner = new THREE.Group();
 scene.add(spinner);
-const FIXED = /^(base|arm-|arm-screws-|bearing)/;
+const FIXED = /^(base|arm-|arm-screws-|bearing|parked-)/;   // parked parts hover still beside the tray
 for (const o of [...scene.children]) {
   if (o === spinner || o.isLight) continue;
   const p = parts.find(p => p.mesh === o);
@@ -843,8 +895,8 @@ function spinStep() {
 }
 
 // ---- Filament colours: click a printed part, pick a filament. Saved per part in localStorage.
-const PRINTED = /^(quarter-|feeder-|centre-cup$|scoring-drum$|hub$|base$|arm-\d$|keys$|insert-)/;
-const PART_LABEL = n => n.replace(/^arm-(\d)$/, (_, i) => `outrigger arm ${+i + 1}`).replace('feeder-tower', 'birdfeeder body').replace('feeder-roof', 'birdfeeder roof').replace('centre-cup', 'centre cup').replace('scoring-drum', 'scoring drum').replace('feeder-baffle-', 'birdfeeder baffle ')
+const PRINTED = /^(quarter-|feeder-|scoring-drum$|drum-sleeve$|drum-lift$|hub$|base$|arm-\d$|keys$|insert-)/;
+const PART_LABEL = n => n.replace(/^arm-(\d)$/, (_, i) => `outrigger arm ${+i + 1}`).replace('feeder-tower', 'birdfeeder body').replace('feeder-roof', 'birdfeeder roof').replace('centre-cup', 'centre cup').replace('scoring-drum', 'scoring drum').replace('drum-lift', 'tile lift').replace('drum-sleeve', 'drum sleeve').replace('feeder-baffle-', 'birdfeeder baffle ')
   .replace('insert-', 'insert: ').replace('-hb', ' (hummingbird)').replace('-plain', ' (plain)').replace('quarter-', 'quarter: ')
   .replace('food-eggs', 'food + eggs');
 function canvasTex(draw, size = 256) {
@@ -955,8 +1007,31 @@ cv.addEventListener('pointerup', e => {
 });
 window.__spinner = spinner;
 
+// Drum controls: animate toward the target state
+const twistBtn = document.getElementById('twist'), liftBtn = document.getElementById('liftbtn'), drumNote = document.getElementById('drumnote');
+twistBtn.onclick = () => {
+  drumTarget.twist = 1 - drumTarget.twist;
+  twistBtn.textContent = drumTarget.twist ? 'Twist sleeve to play' : 'Twist sleeve to release';
+  drumNote.textContent = drumTarget.twist
+    ? 'Release position: the windows line up with the columns. Tilt the drum toward you and the cubes slide out the front; the sleeve can lift off.'
+    : 'Play position: the sleeve covers one edge of every column, so the cubes stay in, and its pin locks it on.';
+};
+liftBtn.onclick = () => {
+  drumTarget.lift = 1 - drumTarget.lift;
+  liftBtn.textContent = drumTarget.lift ? 'Lower the tile lift' : 'Raise the tile lift';
+};
+function drumStep() {
+  let moved = false;
+  for (const k of ['twist', 'lift', 'stow']) {
+    const d = drumTarget[k] - drumState[k];
+    if (Math.abs(d) > 1e-3) { drumState[k] += Math.sign(d) * Math.min(Math.abs(d), k === 'twist' ? 0.04 : k === 'stow' ? 0.015 : 0.025); moved = true; }
+    else if (d !== 0) { drumState[k] = drumTarget[k]; moved = true; }
+  }
+  if (moved) apply();
+}
+
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
-(function loop() { physics(); spinStep(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+(function loop() { physics(); spinStep(); drumStep(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
 </script>
 </body>
 </html>

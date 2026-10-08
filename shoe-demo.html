@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bird card shoe: four ideas</title>
+<style>
+  body { margin: 0; background: #23251f; color: #e9e4d6; font: 13px/1.4 -apple-system, sans-serif; overflow: hidden; }
+  #view { position: fixed; inset: 0; }
+  #caps { position: fixed; top: 10px; left: 10px; right: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .cap { background: rgba(30,32,27,.88); border-radius: 8px; padding: 8px 10px; }
+  .cap h2 { margin: 0 0 3px; font-size: 14px; color: #c9b48c; }
+  .cap p { margin: 2px 0; color: #b9b4a2; }
+  .cap .sz { color: #a7b89a; }
+  #key { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(30,32,27,.88);
+         border-radius: 8px; padding: 7px 12px; color: #b9b4a2; }
+</style></head><body>
+<div id="view"></div>
+<div id="caps">
+  <div class="cap"><h2>1. Upright, pinch from the top</h2><p>Cards lean back 20&deg;. The front wall is low, so you pinch the front card's top edge and lift it out. Lid over the back half only.</p><p class="sz" id="sz-pinch"></p></div>
+  <div class="cap"><h2>2. Upright, dealing-shoe throat</h2><p>Like a casino shoe: push the front card down; its bottom edge goes out through the throat and it tips forward and slides out flat over the lip. Needs tuning prints.</p><p class="sz" id="sz-throat"></p></div>
+  <div class="cap"><h2>3. Sideways, pinch from the top</h2><p>Same as 1 with each card turned on its long edge: a lower, wider box.</p><p class="sz" id="sz-sideways"></p></div>
+  <div class="cap"><h2>4. Lying almost flat</h2><p>Cards rest on a 15&deg; ramp; slide the top card forward off the stack, over the low front wall.</p><p class="sz" id="sz-flat"></p></div>
+</div>
+<div id="key">Each box is cut in half to show inside. All hold 349 cards (half the collection). The orange card shows how one is drawn. Drag to orbit, scroll to zoom.</div>
+<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(Math.min(devicePixelRatio, 2));
+r.setSize(innerWidth, innerHeight); document.getElementById('view').appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x23251f);
+const cam = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 1, 8000); cam.up.set(0, 0, 1);
+cam.position.set(-40, 1700, 330);
+const ctl = new OrbitControls(cam, r.domElement); ctl.target.set(-40, 0, 60); ctl.zoomSpeed = 10; ctl.zoomToCursor = true; ctl.update();
+scene.add(new THREE.HemisphereLight(0xfff8ec, 0x3a3a30, 1.5));
+const sun = new THREE.DirectionalLight(0xffffff, 1.3); sun.position.set(200, 600, 500); scene.add(sun);
+const meta = await (await fetch('shoe-demo/demo.json?' + Date.now())).json();
+const loader = new STLLoader(), movers = [];
+// camera looks from +y, so +x is on the left: place variant 1 furthest left
+const order = [['pinch', 330], ['throat', 110], ['sideways', -110], ['flat', -320]];
+for (const [name, dx] of order) {
+  const m = meta[name];
+  document.getElementById('sz-' + name).textContent = `About ${m.size[0]} long x ${m.size[1]} wide x ${m.size[2]} tall (mm)`;
+  for (const [part, col] of [['shell', 0xc9b48c], ['stack', 0x8fa0b4]]) {
+    const g = await loader.loadAsync(`shoe-demo/${name}-${part}.stl?${Date.now()}`); g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: col, roughness: .75, side: THREE.DoubleSide }));
+    mesh.position.x = dx; scene.add(mesh);
+  }
+  const c = m.card, th = 0.8;
+  const geo = c.pivot === 'flat' ? new THREE.BoxGeometry(c.h, c.w / 2, th).translate(c.h / 2, -c.w / 4, th / 2)
+                                 : new THREE.BoxGeometry(th, c.w / 2, c.h).translate(-th / 2, -c.w / 4, c.h / 2);
+  const card = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xe08a3c, roughness: .6 }));
+  scene.add(card); movers.push({ card, c, dx });
+}
+const ease = t => t * t * (3 - 2 * t);
+function pose(path, t) {                       // t in 0..1 along the keyframes
+  const k = Math.min(path.length - 2, Math.floor(t * (path.length - 1))), f = t * (path.length - 1) - k;
+  const a = path[k], b = path[k + 1];
+  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+}
+(function loop(now) {
+  const T = (now / 1000) % 6, p = T < 3 ? ease(T / 3) : T < 4 ? 1 : T < 5.5 ? 1 - ease((T - 4) / 1.5) : 0;
+  for (const { card, c, dx } of movers) {
+    const [x, z, a] = pose(c.path, p);
+    card.position.set(x + dx, 0, z);
+    card.rotation.y = c.pivot === 'flat' ? -(c.ang * Math.PI / 180) : -(a * Math.PI / 180);
+  }
+  r.render(scene, cam); requestAnimationFrame(loop);
+})(0);
+addEventListener('resize', () => { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); r.setSize(innerWidth, innerHeight); });
+</script></body></html>

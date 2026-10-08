@@ -15,11 +15,25 @@
    "mb": 0.68
   },
   {
-   "file": "stl/centre-cup.stl",
-   "name": "centre-cup",
+   "file": "stl/bird-shoe-ramp.stl",
+   "name": "bird-shoe-ramp",
    "qty": "1",
-   "note": "Drops into the round well in the middle of the assembled tray. Prints upright.",
-   "mb": 0.55
+   "note": "",
+   "mb": 0.01
+  },
+  {
+   "file": "stl/bird-shoe.stl",
+   "name": "bird-shoe",
+   "qty": "1",
+   "note": "Bird card shoe: half the bird collection, leaning in a covered box. Thumb the front card down and out of the slot.",
+   "mb": 0.01
+  },
+  {
+   "file": "stl/drum-sleeve.stl",
+   "name": "drum-sleeve",
+   "qty": "1",
+   "note": "Scoring-drum sleeve, in a second colour: slide it over the drum (pin up the slot) and twist. Labels show the drum colour through them.",
+   "mb": 1.01
   },
   {
    "file": "stl/feeder-baffles.stl",
@@ -71,20 +85,6 @@
    "mb": 0.09
   },
   {
-   "file": "stl/insert-feeder-hummingbird.stl",
-   "name": "insert-feeder-hummingbird",
-   "qty": "1",
-   "note": "Swappable: hummingbird draw deck and discard.",
-   "mb": 0.02
-  },
-  {
-   "file": "stl/insert-feeder-plain.stl",
-   "name": "insert-feeder-plain",
-   "qty": "1",
-   "note": "Swappable: open tray for games without hummingbirds.",
-   "mb": 0.01
-  },
-  {
    "file": "stl/keys-x8.stl",
    "name": "keys-x8",
    "qty": "1 plate",
@@ -95,8 +95,8 @@
    "file": "stl/quarter-cards.stl",
    "name": "quarter-cards",
    "qty": "1",
-   "note": "Bird-card stands and goal ledge. Floor down.",
-   "mb": 1.87
+   "note": "Hummingbird draw deck and discard wells (bird-card stands out for now). Floor down.",
+   "mb": 1.42
   },
   {
    "file": "stl/quarter-decks.stl",
@@ -110,7 +110,7 @@
    "name": "quarter-feeder",
    "qty": "1",
    "note": "Birdfeeder dish and rolling area. Floor down.",
-   "mb": 1.21
+   "mb": 0.95
   },
   {
    "file": "stl/quarter-food-eggs.stl",
@@ -120,11 +120,25 @@
    "mb": 1.27
   },
   {
+   "file": "stl/scoring-drum-body-only.stl",
+   "name": "scoring-drum-body-only",
+   "qty": "-",
+   "note": "Multi-material printers only: the drum without its lift, in the same position as the lift-only file. Load both as one object to print the lift in its own colour.",
+   "mb": 0.63
+  },
+  {
+   "file": "stl/scoring-drum-lift-only.stl",
+   "name": "scoring-drum-lift-only",
+   "qty": "-",
+   "note": "Multi-material printers only: the lift by itself, positioned to drop into the body-only file.",
+   "mb": 0.02
+  },
+  {
    "file": "stl/scoring-drum.stl",
    "name": "scoring-drum",
    "qty": "1",
-   "note": "Alternative to the centre cup: round-scoring drum. Drop 8 mm action cubes into the columns; ties stack.",
-   "mb": 0.47
+   "note": "Centre piece: inner scoring drum with goal-tile slots and a captive tile lift printed in place (push the tab down once to free it). One colour on a single-nozzle printer; for two, use the body-only and lift-only files. Pairs with the drum sleeve.",
+   "mb": 0.65
   }
  ],
  "hardware": [
@@ -153,24 +167,24 @@
    "All the same thickness."
   ]
  ],
- "checks_passed": 230,
- "checks_total": 230,
+ "checks_passed": 229,
+ "checks_total": 229,
  "sims": {
   "dice-simulation": {
    "trials": 40,
    "outcomes": {
-    "exited through the front": 196,
-    "never entered the chute": 1,
-    "stuck inside": 3
+    "exited through the front": 172,
+    "never entered the chute": 28
    }
   },
   "dice-simulation-low": {
    "trials": 40,
    "outcomes": {
-    "exited through the front": 200
+    "exited through the front": 199,
+    "never entered the chute": 1
    }
   }
  },
  "diameter": 460.0,
- "build": 1791338107
+ "build": 1791419199
 }

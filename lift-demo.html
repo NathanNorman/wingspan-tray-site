@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tile lift: two print-in-place ideas</title>
+<style>
+  body { margin: 0; background: #23251f; color: #e9e4d6; font: 14px/1.45 -apple-system, sans-serif; overflow: hidden; }
+  #view { position: fixed; inset: 0; }
+  .cap { position: fixed; top: 14px; width: 44%; background: rgba(30,32,27,.88); border-radius: 8px; padding: 10px 14px; }
+  .cap h2 { margin: 0 0 4px; font-size: 15px; color: #c9b48c; }
+  .cap p { margin: 3px 0; color: #b9b4a2; font-size: 13px; }
+  #l { left: 2%; } #r { right: 2%; }
+  #key { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: rgba(30,32,27,.88);
+         border-radius: 8px; padding: 8px 14px; font-size: 13px; color: #b9b4a2; }
+  .sw { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin: 0 4px 0 12px; vertical-align: -1px; }
+</style></head><body>
+<div id="view"></div>
+<div class="cap" id="l"><h2>Option 1: flat platform (bridge)</h2>
+  <p>The lift and drum print together. The platform's flat bottom is printed over a 0.3 mm air gap,
+     so the printer has to span 27 mm across thin air. It can sag and stick to the floor; you'd push the
+     tab down hard once to break it free.</p></div>
+<div class="cap" id="r"><h2>Option 2: V-shaped bottom</h2>
+  <p>Same lift, but its bottom is a 45&deg; V sitting in a matching V in the pocket floor. Every surface
+     prints at 45&deg; or steeper, so nothing spans air and nothing should stick. The pocket goes about
+     14 mm deeper to fit the V.</p></div>
+<div id="key">Both: a bump on the back of the lift (red) rides in a closed track (dark slot) in the drum wall.
+  It stops the lift after <span id="trav"></span> mm, so it can never come out.
+  <span class="sw" style="background:#c9b48c"></span>drum, cut in half
+  <span class="sw" style="background:#e08a3c"></span>lift
+  <span class="sw" style="background:#8fa0b4"></span>spare goal tiles</div>
+<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(Math.min(devicePixelRatio, 2));
+r.setSize(innerWidth, innerHeight); document.getElementById('view').appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x23251f);
+const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 1, 5000); cam.up.set(0, 0, 1);
+cam.position.set(20, 330, 120);
+const ctl = new OrbitControls(cam, r.domElement); ctl.target.set(0, 0, 55); ctl.zoomSpeed = 10; ctl.zoomToCursor = true; ctl.update();
+scene.add(new THREE.HemisphereLight(0xfff8ec, 0x3a3a30, 1.5));
+const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(150, 300, 300); scene.add(sun);
+const meta = await (await fetch('lift-demo/demo.json?' + Date.now())).json();
+document.getElementById('trav').textContent = meta.bridge.travel;
+const loader = new STLLoader(), lifts = [];
+const col = { drum: 0xc9b48c, lift: 0xe08a3c, bump: 0xd8403a, tiles: 0x8fa0b4 };
+for (const [name, dx] of [['bridge', 55], ['vee', -55]]) {   // camera looks from +y, so +x is on the left
+  for (const part of ['drum', 'lift', 'bump', 'tiles']) {
+    const g = await loader.loadAsync(`lift-demo/${name}-${part}.stl?${Date.now()}`); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: col[part], roughness: .75, side: THREE.DoubleSide }));
+    m.position.x = dx; scene.add(m);
+    if (part !== 'drum') lifts.push({ m, travel: meta[name].travel });
+  }
+}
+for (const L of lifts) L.base ??= L.m.position.z;
+const ease = t => t * t * (3 - 2 * t);
+(function loop(now) {
+  const T = (now / 1000) % 7, p = T < 2.5 ? ease(T / 2.5) : T < 3.5 ? 1 : T < 6 ? 1 - ease((T - 3.5) / 2.5) : 0;
+  for (const L of lifts) L.m.position.z = L.base + p * L.travel;
+  r.render(scene, cam); requestAnimationFrame(loop);
+})(0);
+addEventListener('resize', () => { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); r.setSize(innerWidth, innerHeight); });
+</script></body></html>
