@@ -1,0 +1,504 @@
+{
+ "generated": "2026-10-09",
+ "slicer": "OrcaSlicer (stock printer profiles, PLA, 0.2 mm, 3 walls, 15% gyroid)",
+ "groups": {
+  "tray": "Playing tray: 4 quarters, hub, base, 6 arms, keys and the hummingbird insert",
+  "feeder": "Birdfeeder: body, roof and baffles",
+  "drum": "Scoring drum and its sleeve",
+  "storage-base": "Storage base: 4 pieces and their keys",
+  "storage-lids": "Storage lids (4)",
+  "coupon": "Fit-test coupon"
+ },
+ "parts": {
+  "fit-test-coupon": {
+   "copies": 1,
+   "group": "coupon"
+  },
+  "quarter-cards": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "quarter-food-eggs": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "quarter-feeder": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "quarter-decks": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "keys-x8": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "hub": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "base": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "arms-x6": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "insert-cards-hummingbird": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "feeder-tower": {
+   "copies": 1,
+   "group": "feeder"
+  },
+  "feeder-roof": {
+   "copies": 1,
+   "group": "feeder"
+  },
+  "feeder-baffles": {
+   "copies": 1,
+   "group": "feeder"
+  },
+  "scoring-drum": {
+   "copies": 1,
+   "group": "drum"
+  },
+  "drum-sleeve": {
+   "copies": 1,
+   "group": "drum"
+  },
+  "storage-base-1": {
+   "copies": 1,
+   "group": "storage-base"
+  },
+  "storage-base-2": {
+   "copies": 1,
+   "group": "storage-base"
+  },
+  "storage-base-3": {
+   "copies": 1,
+   "group": "storage-base"
+  },
+  "storage-base-4": {
+   "copies": 1,
+   "group": "storage-base"
+  },
+  "storage-keys-x6": {
+   "copies": 1,
+   "group": "storage-base"
+  },
+  "storage-lid-cards": {
+   "copies": 1,
+   "group": "storage-lids"
+  },
+  "storage-lid-food-eggs": {
+   "copies": 1,
+   "group": "storage-lids"
+  },
+  "storage-lid-feeder": {
+   "copies": 1,
+   "group": "storage-lids"
+  },
+  "storage-lid-decks": {
+   "copies": 1,
+   "group": "storage-lids"
+  }
+ },
+ "printers": {
+  "Bambu Lab P1S / X1C": {
+   "keys-x8": {
+    "h": 0.341,
+    "g": 5.2
+   },
+   "fit-test-coupon": {
+    "h": 0.323,
+    "g": 7.2
+   },
+   "quarter-feeder": {
+    "h": 3.54,
+    "g": 170.0
+   },
+   "base": {
+    "h": 3.533,
+    "g": 124.4
+   },
+   "hub": {
+    "h": 3.223,
+    "g": 118.2
+   },
+   "arms-x6": {
+    "h": 1.956,
+    "g": 69.3
+   },
+   "feeder-tower": {
+    "h": 3.087,
+    "g": 144.6
+   },
+   "feeder-roof": {
+    "h": 0.824,
+    "g": 37.7
+   },
+   "feeder-baffles": {
+    "h": 0.32,
+    "g": 9.7
+   },
+   "quarter-food-eggs": {
+    "h": 4.885,
+    "g": 251.7
+   },
+   "quarter-cards": {
+    "h": 5.795,
+    "g": 273.9
+   },
+   "insert-cards-hummingbird": {
+    "h": 3.154,
+    "g": 112.9
+   },
+   "quarter-decks": {
+    "h": 6.831,
+    "g": 283.6
+   },
+   "storage-base-1": {
+    "h": 4.141,
+    "g": 235.1
+   },
+   "storage-keys-x6": {
+    "h": 0.243,
+    "g": 3.0
+   },
+   "storage-base-2": {
+    "h": 4.133,
+    "g": 235.1
+   },
+   "storage-base-3": {
+    "h": 4.126,
+    "g": 235.1
+   },
+   "drum-sleeve": {
+    "h": 1.254,
+    "g": 28.6
+   },
+   "storage-base-4": {
+    "h": 4.129,
+    "g": 235.1
+   },
+   "storage-lid-cards": {
+    "h": 4.946,
+    "g": 262.0
+   },
+   "storage-lid-food-eggs": {
+    "h": 7.333,
+    "g": 376.7
+   },
+   "storage-lid-feeder": {
+    "h": 5.409,
+    "g": 272.8
+   },
+   "storage-lid-decks": {
+    "h": 4.946,
+    "g": 262.0
+   },
+   "scoring-drum": {
+    "h": 6.575,
+    "g": 163.8
+   }
+  },
+  "Bambu Lab A1": {
+   "fit-test-coupon": {
+    "h": 0.38,
+    "g": 7.1
+   },
+   "keys-x8": {
+    "h": 0.398,
+    "g": 5.2
+   },
+   "quarter-feeder": {
+    "h": 3.865,
+    "g": 170.0
+   },
+   "arms-x6": {
+    "h": 2.263,
+    "g": 69.3
+   },
+   "hub": {
+    "h": 3.57,
+    "g": 118.2
+   },
+   "base": {
+    "h": 3.951,
+    "g": 124.4
+   },
+   "feeder-tower": {
+    "h": 3.939,
+    "g": 144.6
+   },
+   "feeder-roof": {
+    "h": 1.044,
+    "g": 37.7
+   },
+   "feeder-baffles": {
+    "h": 0.346,
+    "g": 9.7
+   },
+   "quarter-food-eggs": {
+    "h": 5.321,
+    "g": 251.7
+   },
+   "quarter-cards": {
+    "h": 6.49,
+    "g": 273.9
+   },
+   "insert-cards-hummingbird": {
+    "h": 3.716,
+    "g": 112.8
+   },
+   "quarter-decks": {
+    "h": 7.643,
+    "g": 283.6
+   },
+   "storage-base-2": {
+    "h": 4.499,
+    "g": 235.1
+   },
+   "storage-base-1": {
+    "h": 4.516,
+    "g": 235.1
+   },
+   "drum-sleeve": {
+    "h": 1.684,
+    "g": 28.6
+   },
+   "storage-base-3": {
+    "h": 4.511,
+    "g": 235.1
+   },
+   "storage-base-4": {
+    "h": 4.495,
+    "g": 235.1
+   },
+   "storage-keys-x6": {
+    "h": 0.276,
+    "g": 2.9
+   },
+   "scoring-drum": {
+    "h": 7.979,
+    "g": 163.7
+   },
+   "storage-lid-decks": {
+    "h": 5.752,
+    "g": 262.0
+   },
+   "storage-lid-cards": {
+    "h": 5.752,
+    "g": 262.0
+   },
+   "storage-lid-feeder": {
+    "h": 6.277,
+    "g": 272.8
+   },
+   "storage-lid-food-eggs": {
+    "h": 8.227,
+    "g": 376.7
+   }
+  },
+  "Anycubic Kobra 3": {
+   "fit-test-coupon": {
+    "h": 0.294,
+    "g": 6.9
+   },
+   "keys-x8": {
+    "h": 0.259,
+    "g": 5.0
+   },
+   "quarter-food-eggs": {
+    "h": 7.225,
+    "g": 243.6
+   },
+   "quarter-cards": {
+    "h": 8.226,
+    "g": 268.2
+   },
+   "quarter-feeder": {
+    "h": 5.279,
+    "g": 164.9
+   },
+   "arms-x6": {
+    "h": 2.322,
+    "g": 68.0
+   },
+   "hub": {
+    "h": 4.381,
+    "g": 113.6
+   },
+   "feeder-baffles": {
+    "h": 0.302,
+    "g": 9.2
+   },
+   "base": {
+    "h": 4.619,
+    "g": 120.7
+   },
+   "feeder-roof": {
+    "h": 1.037,
+    "g": 35.9
+   },
+   "feeder-tower": {
+    "h": 4.244,
+    "g": 140.0
+   },
+   "insert-cards-hummingbird": {
+    "h": 4.095,
+    "g": 111.4
+   },
+   "quarter-decks": {
+    "h": 9.358,
+    "g": 277.3
+   },
+   "storage-base-1": {
+    "h": 6.258,
+    "g": 227.1
+   },
+   "storage-keys-x6": {
+    "h": 0.156,
+    "g": 2.8
+   },
+   "storage-base-2": {
+    "h": 6.271,
+    "g": 227.0
+   },
+   "storage-base-3": {
+    "h": 6.24,
+    "g": 227.1
+   },
+   "drum-sleeve": {
+    "h": 1.506,
+    "g": 27.6
+   },
+   "storage-base-4": {
+    "h": 6.265,
+    "g": 227.0
+   },
+   "scoring-drum": {
+    "h": 7.595,
+    "g": 162.4
+   },
+   "storage-lid-cards": {
+    "h": 7.666,
+    "g": 259.7
+   },
+   "storage-lid-feeder": {
+    "h": 8.176,
+    "g": 270.4
+   },
+   "storage-lid-decks": {
+    "h": 7.666,
+    "g": 259.7
+   },
+   "storage-lid-food-eggs": {
+    "h": 10.896,
+    "g": 371.1
+   }
+  },
+  "Creality Ender-3 S1 Plus": {
+   "fit-test-coupon": {
+    "h": 0.627,
+    "g": 7.0
+   },
+   "keys-x8": {
+    "h": 0.566,
+    "g": 5.2
+   },
+   "quarter-cards": {
+    "h": 19.562,
+    "g": 261.7
+   },
+   "quarter-feeder": {
+    "h": 11.755,
+    "g": 164.7
+   },
+   "arms-x6": {
+    "h": 5.77,
+    "g": 68.0
+   },
+   "hub": {
+    "h": 7.779,
+    "g": 112.7
+   },
+   "feeder-roof": {
+    "h": 3.021,
+    "g": 35.6
+   },
+   "feeder-baffles": {
+    "h": 0.738,
+    "g": 9.6
+   },
+   "feeder-tower": {
+    "h": 10.993,
+    "g": 138.0
+   },
+   "base": {
+    "h": 8.969,
+    "g": 119.8
+   },
+   "insert-cards-hummingbird": {
+    "h": 8.194,
+    "g": 107.3
+   },
+   "quarter-food-eggs": {
+    "h": 18.024,
+    "g": 241.1
+   },
+   "quarter-decks": {
+    "h": 21.234,
+    "g": 275.2
+   },
+   "storage-base-1": {
+    "h": 17.003,
+    "g": 227.0
+   },
+   "storage-keys-x6": {
+    "h": 0.318,
+    "g": 3.0
+   },
+   "storage-base-3": {
+    "h": 17.028,
+    "g": 227.0
+   },
+   "storage-base-2": {
+    "h": 17.04,
+    "g": 226.9
+   },
+   "drum-sleeve": {
+    "h": 4.041,
+    "g": 27.2
+   },
+   "scoring-drum": {
+    "h": 19.294,
+    "g": 157.7
+   },
+   "storage-base-4": {
+    "h": 16.997,
+    "g": 226.9
+   },
+   "storage-lid-cards": {
+    "h": 18.431,
+    "g": 257.4
+   },
+   "storage-lid-decks": {
+    "h": 18.431,
+    "g": 257.4
+   },
+   "storage-lid-feeder": {
+    "h": 20.151,
+    "g": 267.8
+   },
+   "storage-lid-food-eggs": {
+    "h": 27.79,
+    "g": 368.4
+   }
+  }
+ }
+}

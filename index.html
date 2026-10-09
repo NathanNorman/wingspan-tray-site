@@ -33,6 +33,8 @@
   #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; z-index: 5; }
   #lightbox img { max-width: 92vw; max-height: 92vh; }
   #status { font-size: 12px; color: var(--muted); }
+  #ptgroups label { display: flex; justify-content: space-between; gap: 8px; }
+  #ptgroups label span.h { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
   #picker { position: fixed; z-index: 6; display: none; width: 300px; background: var(--panel); border-radius: 10px; padding: 12px;
             box-shadow: 0 8px 28px rgba(0,0,0,.5); }
   #picker h3 { margin: 0 0 8px; font-size: 14px; color: var(--wood); }
@@ -88,6 +90,13 @@
   </select><p class="note" id="designnote"></p></div>
   <p id="summary">A 3D-printable spinning organizer for Wingspan.</p>
   <p id="status">Loading 3D model...</p>
+  <h2>Print time</h2>
+  <select id="ptprinter"></select>
+  <p class="note" style="margin:8px 0 0">Storage</p>
+  <div class="seg" id="ptstore"><button data-store="lids">Base and lids</button><button data-store="base">Base only</button><button data-store="none">No storage</button></div>
+  <div id="ptgroups"></div>
+  <p id="pttotal"></p>
+  <p class="note" id="ptnote"></p>
 
   <h2>Explore</h2>
   <label>Pull apart: <span id="pct">0%</span><input id="explode" type="range" min="0" max="100" value="0"></label>
@@ -176,6 +185,83 @@ const sim = data.sims['dice-simulation'];
 document.getElementById('checks').textContent =
   `${data.checks_passed} of ${data.checks_total} automated fit and assembly checks pass.` +
   (sim ? ` In ${sim.trials} simulated five-dice drops, ${sim.outcomes['exited through the front'] || 0} dice rolled out of the birdfeeder.` : '');
+// ---- print time: totals from print-times.json (slice.py) for the printer and parts picked; the storage choices
+// also decide what storage mode shows (the lids click onto the base, so they need it)
+const printSel = Object.assign({ printer: null, groups: { tray: true, feeder: true, drum: true, 'storage-base': true, 'storage-lids': true, coupon: true } },
+  JSON.parse(localStorage.getItem('wingspan-tray-print') || '{}'));
+const pt = await fetch('print-times.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null);
+// Printed file -> the viewer part(s) whose picked filament it is printed in (one per copy where they differ)
+const PRINT_TO_VIEW = { 'keys-x8': ['keys'], 'feeder-baffles': ['feeder-baffle-1'], 'storage-keys-x6': ['storage-base-1'],
+                        'arms-x6': ['arm-0'], 'insert-cards-hummingbird': ['insert-cards-hb'], 'fit-test-coupon': [null] };
+function ptCost(part, grams, copies) {           // dollars for all copies of a printed file
+  const price = window.__filamentPrice || (() => DEFAULT_PRICE_EARLY);
+  const views = PRINT_TO_VIEW[part] || [part];
+  let c = 0;
+  for (let k = 0; k < copies; k++) c += grams / 1000 * price(views[k % views.length]);
+  return c;
+}
+const DEFAULT_PRICE_EARLY = 17;
+function ptRender() {
+  if (!pt) { document.getElementById('pttotal').textContent = 'No print times yet (run slice.py).'; return; }
+  const P = pt.printers[printSel.printer] || {};
+  let h = 0, g = 0, cost = 0, jobs = 0, missing = 0;
+  const per = {};
+  for (const [part, { copies, group }] of Object.entries(pt.parts)) {
+    const v = P[part];
+    per[group] = per[group] || { h: 0, g: 0, cost: 0, missing: 0 };
+    if (!v) { per[group].missing++; if (printSel.groups[group]) missing++; continue; }
+    const c = ptCost(part, v.g, copies);
+    per[group].h += copies * v.h; per[group].g += copies * v.g; per[group].cost += c;
+    if (printSel.groups[group]) { h += copies * v.h; g += copies * v.g; cost += c; jobs += copies; }
+  }
+  const sb = per['storage-base'] || { h: 0 }, sl = per['storage-lids'] || { h: 0 };
+  const choice = printSel.groups['storage-lids'] !== false ? 'lids' : printSel.groups['storage-base'] !== false ? 'base' : 'none';
+  document.querySelectorAll('#ptstore button').forEach(b => {
+    const add = { lids: sb.h + sl.h, base: sb.h, none: 0 }[b.dataset.store];
+    const addc = { lids: (sb.cost || 0) + (sl.cost || 0), base: sb.cost || 0, none: 0 }[b.dataset.store];
+    b.innerHTML = { lids: 'Base and lids', base: 'Base only', none: 'No storage' }[b.dataset.store] +
+      `<br><span class="note">+${add.toFixed(0)} h, +$${addc.toFixed(0)}</span>`;
+    b.classList.toggle('on', b.dataset.store === choice);
+  });
+  document.querySelectorAll('#ptgroups label').forEach(l => {
+    const k = l.dataset.group, x = per[k] || { h: 0, missing: 1 };
+    l.querySelector('span.h').textContent = x.missing ? 'n/a' : `${x.h.toFixed(1)} h, $${x.cost.toFixed(0)}`;
+  });
+  const days = h / 24;
+  document.getElementById('pttotal').textContent = `${h.toFixed(0)} h of printing, ${(g / 1000).toFixed(2)} kg of filament, about $${cost.toFixed(0)}`;
+  document.getElementById('ptnote').textContent =
+    `${jobs} prints, about ${days.toFixed(1)} days if the printer ran non-stop (plate changes not included).` +
+    (missing ? ` ${missing} part(s) have no time for this printer.` : '') +
+    ` ${pt.slicer}, sliced ${pt.generated}. Cost is each part's filament weight times the price of the filament picked for it (click a part to change it); parts left at their default colour count as generic PLA at $17/kg. Prices are rough list prices, and you'd buy whole 1 kg spools.`;
+}
+if (pt) {
+  const names = Object.keys(pt.printers);
+  if (!names.includes(printSel.printer)) printSel.printer = names[0];
+  const sel = document.getElementById('ptprinter');
+  sel.innerHTML = names.map(n => `<option${n === printSel.printer ? ' selected' : ''}>${n}</option>`).join('');
+  sel.onchange = () => { printSel.printer = sel.value; ptSave(); ptRender(); };
+  document.querySelectorAll('#ptstore button').forEach(b => b.onclick = () => {
+    printSel.groups['storage-base'] = b.dataset.store !== 'none';
+    printSel.groups['storage-lids'] = b.dataset.store === 'lids';
+    ptSave(); ptRender();
+    if (window.__storeSync) window.__storeSync();
+  });
+  document.getElementById('ptgroups').innerHTML = Object.entries(pt.groups).filter(([k]) => !k.startsWith('storage')).map(([k, label]) =>
+    `<label data-group="${k}"><span><input type="checkbox" data-group="${k}"${printSel.groups[k] !== false ? ' checked' : ''}> ${label}</span><span class="h"></span></label>`).join('');
+  document.querySelectorAll('#ptgroups input').forEach(cb => cb.onchange = () => {
+    const k = cb.dataset.group;
+    printSel.groups[k] = cb.checked;
+    if (k === 'storage-lids' && cb.checked) printSel.groups['storage-base'] = true;     // lids click onto the base
+    if (k === 'storage-base' && !cb.checked) printSel.groups['storage-lids'] = false;
+    document.querySelectorAll('#ptgroups input').forEach(x => x.checked = printSel.groups[x.dataset.group] !== false);
+    ptSave(); ptRender();
+    if (window.__storeSync) window.__storeSync();
+  });
+}
+function ptSave() { localStorage.setItem('wingspan-tray-print', JSON.stringify(printSel)); }
+ptRender();
+window.__ptRender = ptRender;
+window.__printSel = printSel;
 const panel = document.getElementById('panel'), toggle = document.getElementById('toggle');
 const phone = matchMedia('(max-width: 700px)').matches;
 if (phone) { panel.classList.add('hidden'); toggle.textContent = 'Show panel'; }
@@ -309,8 +395,9 @@ function apply() {
     if (g.startsWith('props')) vis = vis && props;
     if (g === 'props-tokens') vis = false;        // drawn as textured tokens instead
     if (['screws', 'keys', 'bearing-screws'].includes(n) || n.startsWith('arm-screws')) vis = hw;
-    if (g === 'storage' || g === 'storage-lid') vis = storeState.on;
-    if (g === 'storage-contents') vis = storeState.on && props && n !== 'storage-dice';   // the dice are drawn instead
+    if (g === 'storage') vis = storeState.on && printSel.groups['storage-base'] !== false;
+    if (g === 'storage-lid') vis = storeState.on && printSel.groups['storage-lids'] !== false;
+    if (g === 'storage-contents') vis = storeState.on && props && n !== 'storage-dice' && printSel.groups['storage-base'] !== false;   // the dice are drawn instead
     const kt = storeState.tray, et = kt * kt * (3 - 2 * kt), up = (manifest.tower_pose.storage?.tray_lift || 150) * et;
     if (/^(base|arm-|arm-screws-|bearing)/.test(n)) p.mesh.position.z += up;      // the spinner hangs under the tray
     if (g === 'storage-lid') p.mesh.position.z += 0;
@@ -933,6 +1020,14 @@ trayBtn.onclick = () => {
   trayBtn.textContent = storeTarget.tray ? 'Set the tray back' : 'Lift the tray out';
 };
 seeBtn.onclick = () => { storeState.see = !storeState.see; seeBtn.classList.toggle('on', storeState.see); apply(); };
+window.__storeSync = () => {             // the print-time choices: no base, no storage mode; no lids, no lid buttons
+  const base = printSel.groups['storage-base'] !== false, lids = printSel.groups['storage-lids'] !== false;
+  if (!base && storeState.on) storeBtn.onclick();
+  storeBtn.style.display = base ? '' : 'none';
+  lidBtn.style.display = seeBtn.style.display = lids ? '' : 'none';
+  apply();
+};
+window.__storeSync();
 function unstow() {
   drumTarget.stow = drumState.stow = 0; apply();
   stowBtn.textContent = 'Pack up: lay the birdfeeder down, dice to the outside area';
@@ -1091,6 +1186,7 @@ function filamentMaterial(f) {
   if (f.tex) m.map = texCache[f.tex] ||= TEX[f.tex]();
   return m;
 }
+window.__filamentPrice = name => filamentPrice(saved[name]);
 const printed = parts.filter(p => PRINTED.test(p.item.name));
 printed.forEach(p => p.defaultMat = p.mesh.material);
 const SAVE_KEY = 'wingspan-tray-filaments';
@@ -1101,6 +1197,7 @@ function setFilament(p, id) {
   p.mesh.material = f ? filamentMaterial(f) : p.defaultMat;
   if (f) saved[p.item.name] = id; else delete saved[p.item.name];
   localStorage.setItem(SAVE_KEY, JSON.stringify(saved));
+  if (window.__ptRender) window.__ptRender();          // the print cost follows the filament picked
 }
 for (const p of printed) if (saved[p.item.name]) setFilament(p, saved[p.item.name]);
 const picker = document.getElementById('picker'), sw = document.getElementById('swatches');
@@ -1115,7 +1212,7 @@ function swatchStyle(f) {
 sw.innerHTML = FILAMENTS.map(f => f.group ? `<div class="grp">${f.group}</div>`
   : `<button data-id="${f.id}" title="${f.name}" style="${swatchStyle(f)}"></button>`).join('');
 const swname = document.getElementById('swname');
-sw.onmouseover = e => { const f = FILAMENTS.find(f => f.id && f.id === e.target.dataset.id); if (f) swname.textContent = f.name; };
+sw.onmouseover = e => { const f = FILAMENTS.find(f => f.id && f.id === e.target.dataset.id); if (f) swname.textContent = `${f.name}, about $${filamentPrice(f.id)}/kg`; };
 sw.onclick = e => {
   const id = e.target.dataset.id; if (!id || !picking) return;
   setFilament(picking, id);
