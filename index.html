@@ -41,6 +41,8 @@
   #picker .sw button.on { border-color: #fff; }
   #picker .row { display: flex; gap: 6px; margin-top: 10px; }
   #picker .row button { flex: 1; padding: 6px; border-radius: 6px; border: 1px solid #666; background: transparent; color: var(--ink); cursor: pointer; }
+  #picker .sw .grp { grid-column: 1 / -1; font-size: 11px; color: var(--muted); margin: 4px 0 -2px; }
+  #picker .sw { max-height: 46vh; overflow-y: auto; padding-right: 4px; }
   #picker .name { font-size: 12px; color: var(--muted); min-height: 16px; margin-top: 6px; }
   #spinmode { display: none; }
   /* Phones: the panel becomes a bottom sheet (closed at first so the model has the screen), the colour
@@ -67,20 +69,37 @@
 <div id="view"></div>
 <aside id="panel">
   <h1>Wingspan spinning tray</h1>
+  <div id="designs" style="margin:6px 0 10px"><select id="design" style="width:100%;padding:6px;border-radius:6px;background:transparent;color:inherit;border:1px solid #777">
+    <optgroup label="Main designs">
+      <option value="v2">v2, 46 cm: the original bigger design</option>
+      <option value="v3?stacks=8">v3, 37 cm: soft card stacks, no right angles</option>
+    </optgroup>
+    <optgroup label="Explorations">
+      <option value="v3">v3, 37 cm: deck boxes (as built)</option>
+      <option value="v3?stacks=0">v3, 37 cm: D4 two-tier lid stacks, 10° tilt</option>
+      <option value="v3?stacks=1">v3: B6 stepped stacks, hummingbirds leaning 70° (needs 38 cm)</option>
+      <option value="v3?stacks=2">v3: B6 + hummingbird A-frame, cards turned 90°</option>
+      <option value="v3?stacks=3">v3: B6 + hummingbird A-frame, cards on long edge</option>
+      <option value="v3?stacks=4">v3: D3 set-back lid stacks (needs 41 cm)</option>
+      <option value="v3?stacks=5">v3: B6-A walled trays, thumb notch</option>
+      <option value="v3?stacks=6">v3: B6-B tilted back 8°, low front lip</option>
+      <option value="v3?stacks=7">v3: B6-C ramp deck, cutout discard</option>
+    </optgroup>
+  </select><p class="note" id="designnote"></p></div>
   <p id="summary">A 3D-printable spinning organizer for Wingspan.</p>
   <p id="status">Loading 3D model...</p>
 
   <h2>Explore</h2>
   <label>Pull apart: <span id="pct">0%</span><input id="explode" type="range" min="0" max="100" value="0"></label>
-  <div class="seg" id="mode">
-    <button data-mode="hb" class="on">Hummingbird inserts</button>
-    <button data-mode="plain">No hummingbirds</button>
-  </div>
   <div id="drumctl">
     <div class="seg"><button id="twist">Twist sleeve to release</button><button id="liftbtn">Raise the tile lift</button></div>
     <p class="note" id="drumnote">Play position: the sleeve covers one edge of every column, so the cubes stay in.</p>
   </div>
   <button id="stow" style="width:100%;margin:8px 0 0;padding:9px;border:1px solid var(--wood);border-radius:6px;background:transparent;color:var(--wood);font-weight:600;cursor:pointer">Pack up: lay the birdfeeder down, dice to the outside area</button>
+  <button id="storemode" style="width:100%;margin:8px 0 0;padding:9px;border:1px solid var(--wood);border-radius:6px;background:transparent;color:var(--wood);font-weight:600;cursor:pointer">Storage: pack it all into the storage base and put the lids on</button>
+  <div class="seg" id="storectl" style="display:none;margin-top:6px"><button id="lidopen">Open the lids</button><button id="trayout">Lift the tray out</button><button id="lidsee">See-through lids</button></div>
+  <button id="shelf" style="display:none;width:100%;margin:6px 0 0;padding:8px;border:1px solid var(--wood);border-radius:6px;background:transparent;color:var(--wood);font-weight:600;cursor:pointer">Move it to an end table, next to a record player</button>
+  <p class="note" id="storenote" style="display:none">Packed away: the spinner hangs in the storage base's pocket and the quarters sit flat on its top; the birdfeeder lies face down; the drum's goal tiles are lowered inside it; four lids click onto the rims, level across the top. The base's compartments hold the spare bird cards, Automa and swift-start cards, extra dice, eggs and action cubes.</p>
   <button id="roll" style="width:100%;margin:8px 0;padding:9px;border:0;border-radius:6px;background:var(--wood);color:#1d1f1a;font-weight:600;cursor:pointer">Roll the dice through the birdfeeder</button>
   <div class="seg" id="diceset">
     <button data-set="oceania" class="on">Oceania dice</button>
@@ -91,6 +110,7 @@
   <p class="note">Live physics in your browser (Rapier). It's an approximation: a stuck die here may roll freely on a real print, and vice versa.</p>
   <label><input type="checkbox" id="props" checked> Show game pieces</label>
   <label><input type="checkbox" id="hw" checked> Show screws and keys</label>
+  <label><input type="checkbox" id="table" checked> On a table (Article Seno 47" round, oak: 29" tall)</label>
   <p class="note">Nothing is parked off the board right now.</p>
   <p class="note">Drag to orbit, scroll to zoom, right-drag to pan. The bearing is modelled from the listing photo; confirm its hole spacing before printing.</p>
   <button id="spin" style="width:100%;margin:4px 0;padding:7px;border:1px solid var(--wood);border-radius:6px;background:transparent;color:var(--wood);cursor:pointer">Spin the tray</button>
@@ -131,9 +151,17 @@ import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // ---- panel content
+{ // option values are design keys ('v2', 'v3?stacks=8'); served from the designs folder they live at /tray-vN/site/,
+  // on the public site v2 is the root and v3 sits in v3/
+  const sel = document.getElementById('design'), local = location.pathname.startsWith('/tray-');
+  const root = local ? '' : location.pathname.replace(/v3\/[^/]*$|[^/]*$/, '');
+  const url = key => { const [d, q] = key.split('?'); return (local ? `/tray-${d}/site/index.html` : root + (d === 'v3' ? 'v3/' : '')) + (q ? '?' + q : ''); };
+  const here = (local ? location.pathname.match(/tray-(v\d)/)?.[1] : (/\/v3\/[^/]*$/.test(location.pathname) ? 'v3' : 'v2')) + location.search;
+  for (const o of sel.options) if (o.value === here) o.selected = true;
+  sel.onchange = () => location.href = url(sel.value); }
 const data = await (await fetch('data.json', { cache: 'no-store' })).json();
 document.getElementById('summary').textContent =
-  `A ${data.diameter} mm (${(data.diameter / 25.4).toFixed(1)} in) 3D-printable spinning organizer for Wingspan: four quarters, a birdhouse dice tower, swappable hummingbird inserts, and a base for a 4-inch lazy Susan bearing.`;
+  `A ${data.diameter} mm (${(data.diameter / 25.4).toFixed(1)} in) 3D-printable spinning organizer for Wingspan: four quarters, a birdhouse dice tower, hummingbird inserts, and a base for a 4-inch lazy Susan bearing.`;
 document.getElementById('files').innerHTML = data.files.map(f =>
   `<tr><td class="q">${f.qty}</td><td><a href="${f.file}" download>${f.name}.stl</a> <span class="note">${f.mb} MB</span><br><span class="note">${f.note}</span></td></tr>`).join('');
 document.getElementById('hardware').innerHTML = data.hardware.map(([q, name, url, note]) =>
@@ -175,6 +203,7 @@ controls.zoomToCursor = true;
 controls.minDistance = 40;
 controls.maxDistance = 4000;
 controls.update();
+window.__view = { camera, controls };   // for scripted close-ups
 scene.add(new THREE.HemisphereLight(0xfff8ec, 0x3a3a30, 1.6));
 const sun = new THREE.DirectionalLight(0xffffff, 1.5);
 sun.position.set(300, -400, 800);
@@ -192,7 +221,11 @@ function moveFor(n, g) {
   if (n.startsWith('feeder-')) { const m = out(qa.feeder + 45, 140, 0); m[2] = 450; return m; }
   if (n === 'drum-lift') return [0, 0, 470];                                       // lift rises out of the drum
   if (/^(centre-cup|props-duet|scoring-drum|drum-sleeve|props-drum)/.test(n)) return [0, 0, 380];   // contents ride with the cup / drum
-  if (g.startsWith('props')) { const m = out(qa[quarterOf(n)] + 45, 140, 0); m[2] = n.includes('small') ? 400 : 330; return m; }
+  if (g.startsWith('props')) {
+    const q = quarterOf(n);
+    if (!q) return [0, 0, 330];                     // unknown quarter: lift straight up rather than vanish (NaN)
+    const m = out(qa[q] + 45, 140, 0); m[2] = n.includes('small') ? 400 : 330; return m;
+  }
   return { screws: [0, 0, 330], keys: [0, 0, 200], hub: [0, 0, 150], bearing: [0, 0, 80], 'bearing-screws': [0, 0, 80], 'arm-screws': [0, 0, 40] }[n] || [0, 0, 0];
 }
 const loader = new STLLoader();
@@ -221,6 +254,16 @@ for (const p of parts) {
     p.move = [c.x / r * 90, c.y / r * 90, n.includes('screws') ? 60 : 0];
   }
 }
+// Storage: base quarters slide out along their diagonals and drop, their contents rise out of them,
+// and each lid lifts above its quarter.
+for (const p of parts) {
+  const g = p.item.group, n = p.item.name;
+  if (g === 'storage-lid') { const m = out(qa[quarterOf(n)] + 45, 140, 0); m[2] = 520; p.move = m; }
+  else if (g === 'storage' || g === 'storage-contents') {
+    const a = Math.atan2(p.center.y, p.center.x) * 180 / Math.PI, base = n.startsWith('storage-base-');
+    p.move = out(a, 280, base ? 0 : 140);   // sideways, not down: the table would hide them
+  }
+}
 // The birdfeeder comes apart in the order it goes together: roof lifts off, then the drop-in baffles.
 const roofP = partBy('feeder-roof');
 if (roofP) roofP.move = [roofP.move[0], roofP.move[1], roofP.move[2] + 200];
@@ -229,9 +272,10 @@ for (const [n, dz] of [['feeder-baffle-1', 130], ['feeder-baffle-2', 75]]) {
   if (b) b.move = [b.move[0], b.move[1], b.move[2] + dz];
 }
 
-let mode = 'hb', centre = 'drum';   // the scoring drum is the permanent centre piece
+const mode = 'hb'; let centre = 'drum';   // the scoring drum is the permanent centre piece
 // Scoring drum mechanisms: sleeve twist (0 = play, 1 = release) and tile lift (0 = down, 1 = up)
-const drumState = { twist: 0, lift: 0, stow: 0 }, drumTarget = { twist: 0, lift: 0, stow: 0 };   // stow: birdfeeder laid down
+const drumState = { twist: 0, lift: 0, stow: 0 }, drumTarget = { twist: 0, lift: 0, stow: 0 };
+const storeState = { on: false, lid: 0, tray: 0, see: false }, storeTarget = { lid: 0, tray: 0 };   // stow: birdfeeder laid down
 const slider = document.getElementById('explode');
 function apply() {
   const t = slider.value / 100, e = t * t * (3 - 2 * t);
@@ -265,6 +309,17 @@ function apply() {
     if (g.startsWith('props')) vis = vis && props;
     if (g === 'props-tokens') vis = false;        // drawn as textured tokens instead
     if (['screws', 'keys', 'bearing-screws'].includes(n) || n.startsWith('arm-screws')) vis = hw;
+    if (g === 'storage' || g === 'storage-lid') vis = storeState.on;
+    if (g === 'storage-contents') vis = storeState.on && props && n !== 'storage-dice';   // the dice are drawn instead
+    const kt = storeState.tray, et = kt * kt * (3 - 2 * kt), up = (manifest.tower_pose.storage?.tray_lift || 150) * et;
+    if (/^(base|arm-|arm-screws-|bearing)/.test(n)) p.mesh.position.z += up;      // the spinner hangs under the tray
+    if (g === 'storage-lid') p.mesh.position.z += 0;
+    if (n === 'props-drum-tiles' && storeState.on) vis = false;     // packed: the display tiles are lowered into the drum
+    if (g === 'storage-lid') {
+      const k = storeState.lid, ek = k * k * (3 - 2 * k);
+      p.mesh.position.z += (manifest.tower_pose.storage?.lid_lift || 170) * ek;
+      for (const mt of [].concat(p.mesh.material)) { const op = storeState.see ? 0.28 : (mt.userData.op ?? 1); mt.transparent = op < 1; mt.opacity = op; mt.depthWrite = op === 1; }
+    }
     p.mesh.visible = vis;
   }
   const sc = parts.find(p => p.item.name === 'props-small-cards');      // drawn card faces ride with the cards
@@ -275,19 +330,21 @@ function apply() {
   for (const q of window.__cardQuads || []) {                          // bird card faces and deck backs
     const pr = parts.find(p => p.item.name === q.userData.rideWith);
     if (pr) q.position.set(pr.move[0] * e, pr.move[1] * e, pr.move[2] * e);
-    q.visible = props && (!q.userData.centre || q.userData.centre === centre);
+    q.visible = props && (!q.userData.centre || q.userData.centre === centre)
+      && !(storeState.on && q.userData.rideWith === 'props-drum-tiles');   // packed: lowered into the drum
   }
   const hd = parts.find(p => p.item.name === 'props-small-discard'), hb = window.__hbBack;
   if (hb) { if (hd) hb.position.set(hd.move[0] * e, hd.move[1] * e, hd.move[2] * e); hb.visible = mode === 'hb' && props; }
+  for (const x of window.__storeExtras || []) {                       // drawn spare dice and card backs in the base
+    const pr = parts.find(p => p.item.name === x.userData.rideWith);
+    x.position.copy(x.userData.base); if (pr) x.position.add(new THREE.Vector3(pr.move[0] * e, pr.move[1] * e, pr.move[2] * e));
+    x.visible = storeState.on && props;
+  }
+  if (window.__spinner) { const kt = storeState.tray; window.__spinner.position.z = (manifest.tower_pose.storage?.tray_lift || 150) * kt * kt * (3 - 2 * kt); }
 }
 slider.oninput = apply;
 document.getElementById('props').onchange = apply;
 document.getElementById('hw').onchange = apply;
-document.querySelectorAll('#mode button').forEach(b => b.onclick = () => {
-  mode = b.dataset.mode;
-  document.querySelectorAll('#mode button').forEach(x => x.classList.toggle('on', x === b));
-  apply();
-});
 apply();
 // ---- dice roll: live physics with Rapier. Units are scaled so a die is about 1 unit across, which
 // is the size Rapier's contact tolerances are tuned for (the model itself is in mm).
@@ -656,6 +713,23 @@ function birdBackTexture() {                                    // pale blue-gre
   g.restore();
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
 }
+function automaBackTexture() {                                  // Automa deck: slate wash, a geometric bird, AUTOMA
+  const c = document.createElement('canvas'); c.width = 570; c.height = 870;
+  const g = c.getContext('2d');
+  g.save(); rr(g, 0, 0, 570, 870, 30); g.clip();
+  wash(g, 570, 870, '#4a5560', 'rgba(20,28,36,.18)', 'rgba(170,185,195,.10)');
+  g.strokeStyle = 'rgba(225,232,236,.85)'; g.fillStyle = 'rgba(225,232,236,.85)'; g.lineWidth = 6; g.lineJoin = 'round';
+  g.beginPath(); g.arc(285, 400, 150, 0, 7); g.stroke();                              // gear ring
+  for (let i = 0; i < 12; i++) { g.save(); g.translate(285, 400); g.rotate(i * Math.PI / 6); g.fillRect(-12, -178, 24, 26); g.restore(); }
+  g.beginPath(); g.moveTo(190, 430); g.lineTo(260, 380); g.lineTo(300, 300); g.lineTo(330, 390); g.lineTo(390, 360);   // faceted bird
+  g.lineTo(350, 430); g.lineTo(380, 480); g.lineTo(300, 455); g.lineTo(240, 470); g.closePath(); g.stroke();
+  g.beginPath(); g.moveTo(260, 380); g.lineTo(300, 455); g.lineTo(330, 390); g.stroke();
+  g.beginPath(); g.arc(225, 420, 7, 0, 7); g.fill();
+  g.font = '600 64px "Avenir Next Condensed", "Arial Narrow", sans-serif'; g.textAlign = 'center';
+  g.fillText('AUTOMA', 285, 700);
+  g.restore();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
 function bonusBackTexture() {                                   // sage green wash with pale leaf and berry sprigs
   const c = document.createElement('canvas'); c.width = 570; c.height = 870;
   const g = c.getContext('2d');
@@ -756,6 +830,22 @@ const dieMeshes = pose.dice_rest.map(([x, y, z, yaw]) => {
   m.position.copy(m.userData.rest); m.userData.base = m.position.clone(); scene.add(m); return m;
 });
 window.__dice = dieMeshes;
+// Spares packed in the storage base: drawn like the tray's pieces. The dice are the base game's set (the tray
+// holds the Oceania set); the top card of each pile shows its back.
+const sp = pose.storage || {};
+const automaBack = automaBackTexture();
+window.__storeExtras = [
+  ...(sp.dice || []).map(([x, y, z, yaw]) => {
+    const m = new THREE.Mesh(dieGeo, diceMats.standard); m.rotation.z = yaw * Math.PI / 180;
+    m.userData.rideWith = 'storage-dice'; scene.add(m); return m; }),
+  ...(sp.card_tops || []).map(c => cardQuad(c.corners, c.kind === 'automa' ? automaBack : birdBack,
+    c.kind === 'automa' ? 'storage-cards-automa' : 'storage-cards-birds', 'up')),
+];
+for (const [i, m] of window.__storeExtras.entries()) {
+  if (i < (sp.dice || []).length) m.position.set(...sp.dice[i].slice(0, 3));
+  m.userData.base = m.position.clone(); m.userData.fixed = true;
+}
+apply();
 function topFace(q) {                            // which face points up: index into the set's face list
   const axes = [[1, 0, 0], [0, 1, 0], [-1, 0, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
   let best = 0, bestZ = -2;
@@ -815,6 +905,34 @@ function roll() {
 }
 document.getElementById('roll').onclick = roll;
 const stowBtn = document.getElementById('stow');
+// Storage mode: everything packed into the storage base with the lids on (the base's top is the quarters' underside,
+// so the tray stays put and the table drops by the base's height)
+const storeBtn = document.getElementById('storemode'), lidBtn = document.getElementById('lidopen'), seeBtn = document.getElementById('lidsee');
+storeBtn.onclick = () => {
+  storeState.on = !storeState.on;
+  if (storeState.on) {
+    if (!drumTarget.stow) stowBtn.onclick();                     // lay the birdfeeder down, dice to the outside area
+    drumTarget.lift = 0; liftBtn.textContent = 'Raise the tile lift';
+    storeState.lid = storeTarget.lid = 0;
+  } else if (drumTarget.stow) stowBtn.onclick();
+  storeState.tray = storeTarget.tray = 0; trayBtn.textContent = 'Lift the tray out';
+  if (typeof table !== 'undefined') table.position.z = storeState.on ? (manifest.tower_pose.storage?.z0 ?? -22) : 0;
+  storeBtn.textContent = storeState.on ? 'Back to play: take it out of storage' : 'Storage: pack it all into the storage base and put the lids on';
+  document.getElementById('storectl').style.display = storeState.on ? 'flex' : 'none';
+  document.getElementById('shelf').style.display = storeState.on ? 'block' : 'none';
+  if (!storeState.on && shelfTarget) document.getElementById('shelf').onclick();   // back to the dining table
+  document.getElementById('storenote').style.display = storeState.on ? 'block' : 'none';
+  lidBtn.textContent = 'Open the lids';
+  apply();
+};
+lidBtn.onclick = () => { storeTarget.lid = 1 - storeTarget.lid; lidBtn.textContent = storeTarget.lid ? 'Close the lids' : 'Open the lids'; };
+const trayBtn = document.getElementById('trayout');
+trayBtn.onclick = () => {
+  storeTarget.tray = 1 - storeTarget.tray;
+  if (storeTarget.tray && !storeTarget.lid) { storeTarget.lid = 1; lidBtn.textContent = 'Close the lids'; }   // lids off first
+  trayBtn.textContent = storeTarget.tray ? 'Set the tray back' : 'Lift the tray out';
+};
+seeBtn.onclick = () => { storeState.see = !storeState.see; seeBtn.classList.toggle('on', storeState.see); apply(); };
 function unstow() {
   drumTarget.stow = drumState.stow = 0; apply();
   stowBtn.textContent = 'Pack up: lay the birdfeeder down, dice to the outside area';
@@ -860,11 +978,11 @@ function physics() {
 // the group's own frame (gravity is along the axis), so dice keep rolling correctly at any angle.
 const spinner = new THREE.Group();
 scene.add(spinner);
-const FIXED = /^(base|arm-|arm-screws-|bearing|parked-)/;   // parked parts hover still beside the tray
+const FIXED = /^(base|arm-|arm-screws-|bearing|parked-|storage-(base|cards|dice|eggs|cubes))/;   // parked parts hover still beside the tray
 for (const o of [...scene.children]) {
   if (o === spinner || o.isLight) continue;
   const p = parts.find(p => p.mesh === o);
-  if (p && FIXED.test(p.item.name)) continue;
+  if ((p && FIXED.test(p.item.name)) || o.userData.fixed) continue;
   spinner.attach(o);
 }
 let spinVel = 0, spinDrag = null, spinMode = false;
@@ -895,8 +1013,8 @@ function spinStep() {
 }
 
 // ---- Filament colours: click a printed part, pick a filament. Saved per part in localStorage.
-const PRINTED = /^(quarter-|feeder-|scoring-drum$|drum-sleeve$|drum-lift$|hub$|base$|arm-\d$|keys$|insert-)/;
-const PART_LABEL = n => n.replace(/^arm-(\d)$/, (_, i) => `outrigger arm ${+i + 1}`).replace('feeder-tower', 'birdfeeder body').replace('feeder-roof', 'birdfeeder roof').replace('centre-cup', 'centre cup').replace('scoring-drum', 'scoring drum').replace('drum-lift', 'tile lift').replace('drum-sleeve', 'drum sleeve').replace('feeder-baffle-', 'birdfeeder baffle ')
+const PRINTED = /^(quarter-|feeder-|scoring-drum$|drum-sleeve$|drum-lift$|hub$|base$|arm-\d$|keys$|insert-|storage-base-|storage-lid-)/;
+const PART_LABEL = n => n.replace(/^arm-(\d)$/, (_, i) => `outrigger arm ${+i + 1}`).replace('feeder-tower', 'birdfeeder body').replace('feeder-roof', 'birdfeeder roof').replace('centre-cup', 'centre cup').replace('scoring-drum', 'scoring drum').replace('drum-lift', 'tile lift').replace('drum-sleeve', 'drum sleeve').replace('feeder-baffle-', 'birdfeeder baffle ').replace(/^storage-base-(\d)$/, 'storage base quarter $1').replace(/^storage-lid-(.*)$/, 'storage lid ($1)')
   .replace('insert-', 'insert: ').replace('-hb', ' (hummingbird)').replace('-plain', ' (plain)').replace('quarter-', 'quarter: ')
   .replace('food-eggs', 'food + eggs');
 function canvasTex(draw, size = 256) {
@@ -904,6 +1022,9 @@ function canvasTex(draw, size = 256) {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 const TEX = {
+  grain: () => canvasTex((g, n) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, n, n);       // neutral grain, tinted by the spool colour
+    for (let i = 0; i < 60; i++) { g.strokeStyle = `rgba(0,0,0,${.06 + (i % 5) * .03})`; g.lineWidth = 1 + i % 3;
+      g.beginPath(); const y = i * n / 60; g.moveTo(0, y); g.bezierCurveTo(n * .3, y + 6 * Math.sin(i), n * .7, y - 6 * Math.cos(i), n, y); g.stroke(); } }),
   wood: () => canvasTex((g, n) => { g.fillStyle = '#b08458'; g.fillRect(0, 0, n, n);
     for (let i = 0; i < 60; i++) { g.strokeStyle = `rgba(${90 + i % 4 * 10},${55 + i % 3 * 8},30,${.12 + (i % 5) * .04})`; g.lineWidth = 1 + i % 3;
       g.beginPath(); const y = i * n / 60; g.moveTo(0, y); g.bezierCurveTo(n * .3, y + 6 * Math.sin(i), n * .7, y - 6 * Math.cos(i), n, y); g.stroke(); } }),
@@ -917,6 +1038,7 @@ const TEX = {
     g.fillStyle = gr; g.fillRect(0, 0, n, n); }),
 };
 const FILAMENTS = [
+  { group: 'Generic colours and specialty finishes' },
   { id: 'black', name: 'Black', c: '#1d1d1f' }, { id: 'white', name: 'White', c: '#f2f2ee' },
   { id: 'grey', name: 'Grey', c: '#8a8c8e' }, { id: 'beige', name: 'Beige', c: '#d9c6a2' },
   { id: 'brown', name: 'Brown', c: '#6b4a32' }, { id: 'red', name: 'Red', c: '#c3262e' },
@@ -936,6 +1058,20 @@ const FILAMENTS = [
   { id: 'marble', name: 'Marble', c: '#ffffff', tex: 'marble' },
   { id: 'carbon', name: 'Carbon fibre', c: '#ffffff', tex: 'carbon', rough: .55 },
   { id: 'rainbow', name: 'Rainbow silk', c: '#ffffff', tex: 'rainbow', metal: .4, rough: .35 },
+  // Real spools that suit the game's look (manufacturers' published hex codes; screens and batches vary)
+  { group: 'Bambu Lab PLA Matte: earthy and pastel, like the game art' },
+  ...[['Bone White', '#CBC6B8'], ['Desert Tan', '#E8DBB7'], ['Latte Brown', '#D3B7A7'], ['Caramel', '#AE835B'],
+      ['Terracotta', '#B15533'], ['Dark Brown', '#7D6556'], ['Dark Chocolate', '#4D3324'], ['Dark Green', '#68724D'],
+      ['Grass Green', '#61C680'], ['Apple Green', '#C2E189'], ['Ice Blue', '#A3D8E1'], ['Sky Blue', '#56B7E6'],
+      ['Marine Blue', '#0078BF'], ['Lilac Purple', '#AE96D4'], ['Sakura Pink', '#E8AFCF'], ['Mandarin Orange', '#F99963'],
+      ['Lemon Yellow', '#F7D959'], ['Scarlet Red', '#DE4343'], ['Ash Gray', '#9B9EA0'], ['Charcoal', '#2A2A2A']]
+    .map(([n, c]) => ({ id: 'bbl-matte-' + n.toLowerCase().replace(/ /g, '-'), name: 'Bambu PLA Matte ' + n, c, rough: .95 })),
+  { group: 'Bambu Lab PLA Wood: real wood fibre, matte grain' },
+  ...[['White Oak', '#D6CCA3'], ['Classic Birch', '#918669'], ['Ochre Yellow', '#C98935'], ['Clay Brown', '#995F11'],
+      ['Black Walnut', '#4F3F24'], ['Rosewood', '#4C241C']]
+    .map(([n, c]) => ({ id: 'bbl-wood-' + n.toLowerCase().replace(/ /g, '-'), name: 'Bambu PLA Wood ' + n, c, tex: 'grain', rough: .95 })),
+  { group: 'Polymaker PolyTerra (matte, plant-based)' },
+  { id: 'polyterra-forest', name: 'Polymaker PolyTerra Forest Green', c: '#70AE68', rough: .95 },
 ];
 const texCache = {};
 function boxUV(geo) {                                              // textures need UVs; STLs have none
@@ -950,7 +1086,7 @@ function boxUV(geo) {                                              // textures n
 }
 function filamentMaterial(f) {
   const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(f.c), roughness: f.rough ?? .7, metalness: f.metal ?? 0 });
-  if (f.opacity) { m.transparent = true; m.opacity = f.opacity; m.depthWrite = false; }
+  if (f.opacity) { m.transparent = true; m.opacity = f.opacity; m.depthWrite = false; m.userData.op = f.opacity; }
   if (f.glow) { m.emissive = new THREE.Color(f.glow); m.emissiveIntensity = .45; }
   if (f.tex) m.map = texCache[f.tex] ||= TEX[f.tex]();
   return m;
@@ -970,15 +1106,16 @@ for (const p of printed) if (saved[p.item.name]) setFilament(p, saved[p.item.nam
 const picker = document.getElementById('picker'), sw = document.getElementById('swatches');
 let picking = null;
 function swatchStyle(f) {
-  if (f.tex) return `background-image:url(${(texCache[f.tex] ||= TEX[f.tex]()).image.toDataURL()})`;
+  if (f.tex) return `background:${f.c} url(${(texCache[f.tex] ||= TEX[f.tex]()).image.toDataURL()});background-size:cover;background-blend-mode:multiply`;
   if (f.glow) return `background:${f.c};box-shadow:0 0 8px ${f.glow}`;
   if (f.metal) return `background:linear-gradient(135deg,#fff8 0%,${f.c} 45%,${f.c} 60%,#0005 100%)`;
   if (f.opacity) return `background:${f.c};opacity:.6`;
   return `background:${f.c}`;
 }
-sw.innerHTML = FILAMENTS.map(f => `<button data-id="${f.id}" title="${f.name}" style="${swatchStyle(f)}"></button>`).join('');
+sw.innerHTML = FILAMENTS.map(f => f.group ? `<div class="grp">${f.group}</div>`
+  : `<button data-id="${f.id}" title="${f.name}" style="${swatchStyle(f)}"></button>`).join('');
 const swname = document.getElementById('swname');
-sw.onmouseover = e => { const f = FILAMENTS.find(f => f.id === e.target.dataset.id); if (f) swname.textContent = f.name; };
+sw.onmouseover = e => { const f = FILAMENTS.find(f => f.id && f.id === e.target.dataset.id); if (f) swname.textContent = f.name; };
 sw.onclick = e => {
   const id = e.target.dataset.id; if (!id || !picking) return;
   setFilament(picking, id);
@@ -1001,11 +1138,106 @@ cv.addEventListener('pointerup', e => {
   document.getElementById('pickpart').textContent = PART_LABEL(picking.item.name);
   sw.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.id === saved[picking.item.name]));
   swname.textContent = '';
-  picker.style.left = Math.min(e.clientX + 12, innerWidth - 316) + 'px';
-  picker.style.top = Math.min(e.clientY + 12, innerHeight - 260) + 'px';
-  picker.style.display = 'block';
+  picker.style.display = 'block';                          // show first, then clamp using its real size
+  const pw = picker.offsetWidth, ph = picker.offsetHeight, m = 8;
+  picker.style.left = Math.max(m, Math.min(e.clientX + 12, innerWidth - pw - m)) + 'px';
+  picker.style.top = Math.max(m, Math.min(e.clientY + 12, innerHeight - ph - m)) + 'px';
 });
 window.__spinner = spinner;
+
+// Article Seno 47" round dining table (oak), from its listing: 47" across, 29" tall, four splayed tapered
+// legs. Top thickness, bevel and leg sizes are estimated from the product photos. The table top is at z = 0.
+const table = (() => {
+  const IN = 25.4, R = 23.5 * IN, T = 22, H = 29 * IN, g = new THREE.Group();
+  const grain = canvasTex((c, n) => { c.fillStyle = '#d9b788'; c.fillRect(0, 0, n, n);              // light oak veneer
+    for (let i = 0; i < 90; i++) { c.strokeStyle = `rgba(${150 + i % 5 * 8},${105 + i % 3 * 8},60,${.10 + (i % 6) * .035})`; c.lineWidth = .6 + i % 3 * .7;
+      c.beginPath(); const y = i * n / 90; c.moveTo(0, y); c.bezierCurveTo(n * .3, y + 5 * Math.sin(i * 1.7), n * .7, y - 5 * Math.cos(i * 1.3), n, y); c.stroke(); } });
+  const oak = (rep) => { const t = grain.clone(); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...rep); t.needsUpdate = true;
+    return new THREE.MeshStandardMaterial({ map: t, roughness: .55 }); };
+  const top = new THREE.CylinderGeometry(R, R - 25, T, 160);               // underside bevel
+  top.rotateX(Math.PI / 2); top.translate(0, 0, -T / 2);
+  const topMesh = new THREE.Mesh(top, oak([1, 1])); g.add(topMesh);
+  for (let k = 0; k < 4; k++) {
+    const a = (45 + 90 * k) * Math.PI / 180;
+    const p0 = new THREE.Vector3(390 * Math.cos(a), 390 * Math.sin(a), -T), p1 = new THREE.Vector3(520 * Math.cos(a), 520 * Math.sin(a), -H);
+    const len = p0.distanceTo(p1), leg = new THREE.CylinderGeometry(21, 12, len, 32);   // fat end at the top
+    const m = new THREE.Mesh(leg, oak([1, 3]));
+    m.position.copy(p0.clone().add(p1).multiplyScalar(.5));
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), p0.clone().sub(p1).normalize());
+    g.add(m);
+  }
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(1600, 96), new THREE.MeshStandardMaterial({ color: 0x2c2e28, roughness: 1 }));
+  floor.position.z = -H; g.add(floor);
+  scene.add(g); return g;
+})();
+const tableBox = document.getElementById('table');
+tableBox.onchange = () => { table.visible = tableBox.checked; };
+
+// End table and record player, for a size comparison when it's packed away. Generic sizes: a 24" (610 mm) square,
+// 22" (560 mm) tall end table, and a turntable the size of an Audio-Technica AT-LP60X (359 x 357 mm plinth) with a
+// 12" record. Top surfaces at z = 0; the group sits so the storage base rests on the first table.
+const endScene = (() => {
+  const g = new THREE.Group(), H = 560, T = 25, W = 610, LEG = 40;
+  const walnut = new THREE.MeshStandardMaterial({ color: 0x5b3a26, roughness: .6 });
+  function endTable(x) {
+    const top = new THREE.Mesh(new THREE.BoxGeometry(W, W, T), walnut); top.position.set(x, 0, -T / 2); g.add(top);
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(W - 2 * LEG, W - 2 * LEG, 18), walnut); shelf.position.set(x, 0, -H + 140); g.add(shelf);
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(LEG, LEG, H - T), walnut);
+      leg.position.set(x + sx * (W / 2 - LEG / 2 - 10), sy * (W / 2 - LEG / 2 - 10), -T - (H - T) / 2); g.add(leg);
+    }
+  }
+  endTable(0); endTable(W + 90);
+  const rp = new THREE.Group(); rp.position.set(W + 90, 0, 0); rp.rotation.z = -0.08; g.add(rp);
+  const black = new THREE.MeshStandardMaterial({ color: 0x1b1b1d, roughness: .45 });
+  const alu = new THREE.MeshStandardMaterial({ color: 0xc9cbcd, roughness: .3, metalness: .8 });
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(359, 357, 70), black); plinth.position.z = 12 + 35; rp.add(plinth);
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+    const f = new THREE.Mesh(new THREE.CylinderGeometry(18, 20, 12, 24), black); f.rotation.x = Math.PI / 2;
+    f.position.set(sx * 150, sy * 150, 6); rp.add(f);
+  }
+  const zt = 12 + 70, cx = -30, cy = 0;
+  const platter = new THREE.Mesh(new THREE.CylinderGeometry(150, 150, 12, 96), alu); platter.rotation.x = Math.PI / 2;
+  platter.position.set(cx, cy, zt + 6); rp.add(platter);
+  const vinyl = new THREE.Mesh(new THREE.CylinderGeometry(152.5, 152.5, 1.5, 128), new THREE.MeshStandardMaterial({ color: 0x0c0c0d, roughness: .25 }));
+  vinyl.rotation.x = Math.PI / 2; vinyl.position.set(cx, cy, zt + 12.8); rp.add(vinyl);
+  const label = new THREE.Mesh(new THREE.CylinderGeometry(50, 50, 1.7, 64), new THREE.MeshStandardMaterial({ color: 0xc8452f, roughness: .6 }));
+  label.rotation.x = Math.PI / 2; label.position.set(cx, cy, zt + 12.9); rp.add(label);
+  const spindle = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.6, 16, 16), alu); spindle.rotation.x = Math.PI / 2;
+  spindle.position.set(cx, cy, zt + 18); rp.add(spindle);
+  const px = 140, py = 120;                                       // tonearm pivot, back right
+  const pivot = new THREE.Mesh(new THREE.CylinderGeometry(16, 18, 24, 32), alu); pivot.rotation.x = Math.PI / 2;
+  pivot.position.set(px, py, zt + 12); rp.add(pivot);
+  const tip = new THREE.Vector3(cx + 95, cy - 110, zt + 22), base = new THREE.Vector3(px, py, zt + 22);
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3.5, base.distanceTo(tip), 16), alu);
+  arm.position.copy(base.clone().add(tip).multiplyScalar(.5));
+  arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tip.clone().sub(base).normalize()); rp.add(arm);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(18, 30, 8), black); head.position.copy(tip).add(new THREE.Vector3(0, 0, -4));
+  head.rotation.z = Math.atan2(tip.y - base.y, tip.x - base.x) + Math.PI / 2; rp.add(head);
+  const rest = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 20, 12), alu); rest.rotation.x = Math.PI / 2;
+  rest.position.set(px + 5, py - 150, zt + 10); rp.add(rest);
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(2000, 96), new THREE.MeshStandardMaterial({ color: 0x2c2e28, roughness: 1 }));
+  floor.position.set(W / 2, 0, -H); g.add(floor);
+  g.visible = false; scene.add(g); return g;
+})();
+// Moving it: the box stays put on screen and the room moves under it (the dining table slides away while the
+// box is lifted, then the end table slides in and it's set down)
+let shelfState = 0, shelfTarget = 0;
+const shelfBtn = document.getElementById('shelf');
+shelfBtn.onclick = () => {
+  shelfTarget = 1 - shelfTarget;
+  shelfBtn.textContent = shelfTarget ? 'Move it back to the dining table' : 'Move it to an end table, next to a record player';
+};
+function shelfStep() {
+  const d = shelfTarget - shelfState;
+  if (d === 0) return;
+  shelfState = Math.abs(d) < 0.006 ? shelfTarget : shelfState + Math.sign(d) * 0.006;
+  const k = shelfState, e = k * k * (3 - 2 * k), z0 = storeState.on ? (manifest.tower_pose.storage?.z0 ?? -22) : 0;
+  const lift = 150 * Math.sin(Math.PI * Math.min(1, Math.max(0, (k - .05) / .9)));   // up, across, down
+  table.position.set(-2600 * e, 0, z0 - lift);
+  endScene.visible = k > 0;
+  endScene.position.set(2600 * (1 - e), 0, z0 - lift);
+}
 
 // Drum controls: animate toward the target state
 const twistBtn = document.getElementById('twist'), liftBtn = document.getElementById('liftbtn'), drumNote = document.getElementById('drumnote');
@@ -1027,11 +1259,16 @@ function drumStep() {
     if (Math.abs(d) > 1e-3) { drumState[k] += Math.sign(d) * Math.min(Math.abs(d), k === 'twist' ? 0.04 : k === 'stow' ? 0.015 : 0.025); moved = true; }
     else if (d !== 0) { drumState[k] = drumTarget[k]; moved = true; }
   }
+  for (const k of ['lid', 'tray']) {                             // lids lift off, the tray lifts out of the base
+    const dl = storeTarget[k] - storeState[k];
+    if (Math.abs(dl) > 1e-3) { storeState[k] += Math.sign(dl) * Math.min(Math.abs(dl), 0.02); moved = true; }
+    else if (dl !== 0) { storeState[k] = storeTarget[k]; moved = true; }
+  }
   if (moved) apply();
 }
 
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
-(function loop() { physics(); spinStep(); drumStep(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+(function loop() { physics(); spinStep(); drumStep(); shelfStep(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
 </script>
 </body>
 </html>

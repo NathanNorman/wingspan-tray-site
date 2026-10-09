@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wingspan tray: card layout sandbox</title>
+<style>
+  :root { --bg: #23251f; --panel: rgba(30,32,27,.94); --ink: #e9e4d6; --muted: #b3ad9c; --accent: #a7b89a; --wood: #c9b48c; --bad: #e0704f; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; overflow: hidden; }
+  #view { position: fixed; inset: 0; }
+  #panel { position: fixed; top: 10px; left: 10px; bottom: 10px; width: 300px; overflow-y: auto; background: var(--panel); border-radius: 10px; padding: 14px; box-sizing: border-box; }
+  h1 { font-size: 17px; margin: 0 0 4px; color: var(--wood); }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin: 16px 0 6px; }
+  p { margin: 6px 0; color: var(--muted); }
+  .note { font-size: 12px; color: var(--muted); }
+  #size { font-size: 15px; font-weight: 600; color: var(--wood); margin: 8px 0 2px; }
+  #problems { font-size: 12px; }
+  #problems .bad { color: var(--bad); }
+  #pieces button { display: block; width: 100%; text-align: left; margin: 3px 0; padding: 6px 8px; border-radius: 6px; border: 1px solid #555;
+                   background: transparent; color: var(--ink); cursor: pointer; }
+  #pieces button.on { border-color: var(--accent); background: rgba(167,184,154,.15); }
+  #pieces button.bad { border-color: var(--bad); }
+  #pieces button i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  label { display: block; margin: 8px 0 2px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .row { display: flex; gap: 6px; margin: 6px 0; }
+  .row button, .btn { flex: 1; padding: 7px; border-radius: 6px; border: 1px solid var(--wood); background: transparent; color: var(--wood); cursor: pointer; font-weight: 600; }
+  .seg { display: flex; border: 1px solid #555; border-radius: 6px; overflow: hidden; margin: 6px 0; }
+  .seg button { flex: 1; background: transparent; color: var(--ink); border: 0; padding: 6px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #1d1f1a; }
+  textarea { width: 100%; height: 90px; background: #1b1c18; color: var(--ink); border: 1px solid #444; border-radius: 6px; font: 11px monospace; }
+  a { color: var(--wood); }
+</style></head><body>
+<div id="view"></div>
+<aside id="panel">
+  <h1>Card layout sandbox</h1>
+  <p>Move the card holders around the two card quarters and see what size of tray the layout needs. The food and birdfeeder quarters and the scoring drum are fixed.</p>
+  <p id="size"></p>
+  <div id="problems"></div>
+
+  <h2>Pieces</h2>
+  <div id="pieces"></div>
+
+  <h2 id="selname">Selected piece</h2>
+  <div id="selctl">
+    <label>Card angle: <span id="angv"></span> <span class="note">(0 flat, 90 upright)</span><input id="ang" type="range" min="0" max="90" step="1"></label>
+    <label>Spin: <span id="spinv"></span><input id="spin" type="range" min="-180" max="180" step="1"></label>
+    <div class="seg" id="lay"><button data-lay="row">Straight row</button><button data-lay="arc">Follow the rim</button></div>
+    <label>Cards: <span id="nv"></span><input id="n" type="range" min="1" max="200" step="1"></label>
+    <div class="row"><button id="turn">Turn cards 90°</button></div>
+    <p class="note" id="selinfo"></p>
+  </div>
+
+  <h2>Layout</h2>
+  <div class="row"><button id="top">Top view</button><button id="persp">3D view</button></div>
+  <div class="row"><button id="reset">Back to v3's layout</button><button id="copy">Copy layout</button></div>
+  <textarea id="out" readonly placeholder="Copy layout puts the layout here (and on your clipboard): paste it back to me."></textarea>
+  <p class="note">Drag a piece to move it. Shift-drag spins it. Keys for the selected piece: arrows move 1 mm (Shift: 10), Q / E spin 5°, [ / ] card angle 5°. Saved in this browser as you go.</p>
+  <p class="note"><a href="index.html">Back to the viewer</a></p>
+</aside>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+
+// ---- fixed geometry of the v3 tray (mm, world frame: decks quarter 0-90 deg, feeder 90-180, food 180-270, cards 270-360)
+const R = 185, R_IN = 182, RIM_H = 24, FLOOR = 4, Z_TRAY = 9.4, DRUM_R = 44.5, CARD_T = 0.3;
+const ZF = Z_TRAY + FLOOR;                          // the quarters' floor top
+const MARGIN = 3;                                   // holder walls and clearance round each pile's cards
+const FIXED_SECTORS = [[90, 180, 'the birdfeeder quarter'], [180, 270, 'the food and egg quarter']];
+
+// ---- pieces: kind 'pile' (a stack of n cards) or 'display' (n cards side by side); card [across, tall] in mm
+const BIRD = [57, 87], BONUS = [87, 57], SMALL = [44, 67], SMALL_WIDE = [67, 44];
+const DEFAULTS = [   // as v3 is now: the deck boxes' contents as separate upright piles, the trays, the upright display rows
+  { id: 'bird-deck', name: 'Bird deck', kind: 'pile', card: BIRD, n: 130, angle: 90, x: 42.5, y: 133.7, spin: 90, color: '#8fb0c8' },
+  { id: 'bird-discard', name: 'Bird discard', kind: 'pile', card: BIRD, n: 80, angle: 90, x: 42.5, y: 96.2, spin: 90, color: '#b9cfe0' },
+  { id: 'bird-display', name: 'Face-up birds (3)', kind: 'display', card: BIRD, n: 3, angle: 70, x: 101.1, y: -101.1, spin: -45, lay: 'arc', color: '#e8e2cf' },
+  { id: 'bonus-deck', name: 'Bonus deck', kind: 'pile', card: BIRD, n: 58, angle: 90, x: 144.9, y: 52.8, spin: 10.2, color: '#9fbf8f' },
+  { id: 'bonus-discard', name: 'Bonus discard', kind: 'pile', card: BIRD, n: 58, angle: 90, x: 121.9, y: 48.7, spin: 10.2, color: '#c4dab7' },
+  { id: 'hb-deck', name: 'Hummingbird deck', kind: 'pile', card: SMALL_WIDE, n: 35, angle: 30, x: 66.0, y: 39.0, spin: 10.1, color: '#7fb7a6' },
+  { id: 'hb-discard', name: 'Hummingbird discard', kind: 'pile', card: SMALL_WIDE, n: 35, angle: 30, x: 59.5, y: -52.2, spin: -18, color: '#a9d3c6' },
+  { id: 'hb-display', name: 'Face-up hummingbirds (5)', kind: 'display', card: SMALL, n: 5, angle: 70, x: 118.8, y: -118.8, spin: -45, lay: 'arc', color: '#d9ecd9' },
+  { id: 'duet', name: 'Duet tokens (pocket)', kind: 'block', size: [48, 26], h: 30, x: 104, y: 100, spin: 45, color: '#777' },
+];
+const SAVE = 'wingspan-tray-v3-layout';
+let pieces = JSON.parse(localStorage.getItem(SAVE) || 'null') || structuredClone(DEFAULTS);
+let sel = pieces[0].id;
+
+// ---- scene
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
+document.getElementById('view').appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x23251f);
+const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 1, 10000); camera.up.set(0, 0, 1);
+const controls = new OrbitControls(camera, renderer.domElement); controls.zoomSpeed = 10; controls.zoomToCursor = true;
+scene.add(new THREE.HemisphereLight(0xfff8ec, 0x3a3a30, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 1.1); sun.position.set(300, -400, 900); scene.add(sun);
+function topView() { camera.position.set(-80, -1, 1250); controls.target.set(-80, 0, 0); controls.update(); }   // tray right of the panel
+function perspView() { camera.position.set(140, -700, 560); controls.target.set(-60, 0, 20); controls.update(); }
+topView();
+document.getElementById('top').onclick = topView; document.getElementById('persp').onclick = perspView;
+const mat = (c, o = 1) => new THREE.MeshStandardMaterial({ color: c, roughness: .8, transparent: o < 1, opacity: o, side: THREE.DoubleSide });
+
+// plain floors and rims for the two card quarters (their printed features come from the layout); the rest loads as built
+function sectorShape(r0, r1, a0, a1) {
+  const s = new THREE.Shape(), n = 64;
+  for (let i = 0; i <= n; i++) { const a = (a0 + (a1 - a0) * i / n) * Math.PI / 180; const p = [r1 * Math.cos(a), r1 * Math.sin(a)]; i ? s.lineTo(...p) : s.moveTo(...p); }
+  for (let i = n; i >= 0; i--) { const a = (a0 + (a1 - a0) * i / n) * Math.PI / 180; s.lineTo(r0 * Math.cos(a), r0 * Math.sin(a)); }
+  return s;
+}
+for (const [a0, a1] of [[0, 90], [270, 360]]) {
+  const floor = new THREE.Mesh(new THREE.ExtrudeGeometry(sectorShape(DRUM_R - 2, R, a0 + 0.3, a1 - 0.3), { depth: FLOOR, bevelEnabled: false }), mat(0xd8cdb4));
+  floor.position.z = Z_TRAY; scene.add(floor);
+  const rim = new THREE.Mesh(new THREE.ExtrudeGeometry(sectorShape(R_IN, R, a0 + 0.3, a1 - 0.3), { depth: RIM_H, bevelEnabled: false }), mat(0xc9bc9e));
+  rim.position.z = Z_TRAY; scene.add(rim);
+}
+const needRing = new THREE.Mesh(new THREE.RingGeometry(1, 1.0, 180), new THREE.MeshBasicMaterial({ color: 0xe0704f, transparent: true, opacity: .8, side: THREE.DoubleSide }));
+needRing.position.z = ZF + 0.2; scene.add(needRing);
+(async () => {
+  const man = await (await fetch('assembly/manifest.json', { cache: 'no-store' })).json();
+  const keep = /^(quarter-food-eggs|quarter-feeder|feeder-tower|feeder-roof|scoring-drum|drum-sleeve|props-drum|props-tokens|props-eggs|bearing)/;
+  const loader = new STLLoader();
+  for (const it of man.items.filter(i => keep.test(i.name))) {
+    const g = await loader.loadAsync('assembly/' + it.file); g.computeVertexNormals();
+    scene.add(new THREE.Mesh(g, mat(new THREE.Color(...it.color))));
+  }
+})();
+
+// ---- piece geometry. Local frame: +x is the side players face (the cards' fronts), y across, z up from the floor.
+// A card at angle a leans back from its bottom edge: along it runs (-cos a, 0, sin a); a stack of n cards sits behind
+// (or, laid flat, under) the front card, so its footprint depth is h cos a + n t sin a.
+function cardBox(w, h, thick, a) {
+  const g = new THREE.BoxGeometry(h, w, thick);
+  const m = new THREE.Mesh(g, mat(0xf4f1e8));
+  m.rotation.y = a * Math.PI / 180 + Math.PI;                  // box +x -> along the card, +z -> behind it
+  const ar = a * Math.PI / 180;
+  const depth = h * Math.cos(ar) + thick * Math.sin(ar), height = h * Math.sin(ar) + thick * Math.cos(ar);
+  m.position.set(0, 0, height / 2);
+  return { mesh: m, depth, height };
+}
+function footprints(p) {                                    // oriented rectangles in world: {cx, cy, hx, hy, rot}
+  const out = [];
+  if (p.kind === 'block') { out.push({ cx: p.x, cy: p.y, hx: p.size[0] / 2, hy: p.size[1] / 2, rot: p.spin }); return out; }
+  const [w, h] = p.card, a = p.angle * Math.PI / 180;
+  if (p.kind === 'pile') {
+    const d = h * Math.cos(a) + p.n * CARD_T * Math.sin(a);
+    out.push({ cx: p.x, cy: p.y, hx: d / 2 + MARGIN, hy: w / 2 + MARGIN, rot: p.spin });
+  } else {
+    const d = h * Math.cos(a) + CARD_T, gap = 3;
+    if (p.lay === 'arc') {
+      const r0 = Math.hypot(p.x, p.y), a0 = Math.atan2(p.y, p.x), step = 2 * Math.asin(Math.min(1, (w + gap) / 2 / Math.max(r0, 1)));
+      for (let i = 0; i < p.n; i++) {
+        const ai = a0 + (i - (p.n - 1) / 2) * step;
+        out.push({ cx: r0 * Math.cos(ai), cy: r0 * Math.sin(ai), hx: d / 2 + MARGIN, hy: w / 2 + 1.5, rot: ai * 180 / Math.PI });
+      }
+    } else {
+      const total = p.n * (w + gap);
+      out.push({ cx: p.x, cy: p.y, hx: d / 2 + MARGIN, hy: total / 2, rot: p.spin });
+    }
+  }
+  return out;
+}
+function corners(f) {
+  const c = Math.cos(f.rot * Math.PI / 180), s = Math.sin(f.rot * Math.PI / 180);
+  return [[1, 1], [-1, 1], [-1, -1], [1, -1]].map(([u, v]) => [f.cx + u * f.hx * c - v * f.hy * s, f.cy + u * f.hx * s + v * f.hy * c]);
+}
+function sat(a, b) {                                         // do two oriented rectangles overlap (more than 0.2 mm)?
+  const A = corners(a), B = corners(b);
+  for (const poly of [A, B]) for (let i = 0; i < 4; i++) {
+    const [x1, y1] = poly[i], [x2, y2] = poly[(i + 1) % 4], nx = -(y2 - y1), ny = x2 - x1, L = Math.hypot(nx, ny);
+    const pa = A.map(([x, y]) => (x * nx + y * ny) / L), pb = B.map(([x, y]) => (x * nx + y * ny) / L);
+    if (Math.max(...pa) < Math.min(...pb) + 0.2 || Math.max(...pb) < Math.min(...pa) + 0.2) return false;
+  }
+  return true;
+}
+function samples(f) {                                        // points over a rectangle, for the circle and sector tests
+  const pts = [], c = Math.cos(f.rot * Math.PI / 180), s = Math.sin(f.rot * Math.PI / 180);
+  for (let i = 0; i <= 8; i++) for (let j = 0; j <= 8; j++) {
+    const u = (i / 4 - 1) * f.hx, v = (j / 4 - 1) * f.hy;
+    pts.push([f.cx + u * c - v * s, f.cy + u * s + v * c]);
+  }
+  return pts;
+}
+
+// ---- build the visuals
+const groups = new Map();
+function build(p) {
+  if (groups.has(p.id)) { scene.remove(groups.get(p.id)); }
+  const g = new THREE.Group(); g.userData.id = p.id;
+  const isSel = p.id === sel;
+  for (const f of footprints(p)) {
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(2 * f.hx, 2 * f.hy, 1.2), mat(p.color, .9));
+    plate.position.set(f.cx, f.cy, ZF + 0.6); plate.rotation.z = f.rot * Math.PI / 180; plate.userData.id = p.id; g.add(plate);
+    const edge = new THREE.LineSegments(new THREE.EdgesGeometry(plate.geometry), new THREE.LineBasicMaterial({ color: p.bad ? 0xe0704f : isSel ? 0xffffff : 0x333333 }));
+    edge.position.copy(plate.position); edge.rotation.copy(plate.rotation); g.add(edge);
+  }
+  if (p.kind === 'block') {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(p.size[0], p.size[1], p.h), mat(p.color, .85));
+    b.position.set(p.x, p.y, ZF + p.h / 2); b.rotation.z = p.spin * Math.PI / 180; b.userData.id = p.id; g.add(b);
+  } else {
+    const [w, h] = p.card;
+    const place = (cx, cy, rot, n) => {
+      const { mesh, depth } = cardBox(w, h, Math.max(n * CARD_T, 0.3), p.angle);
+      const holder = new THREE.Group(); holder.add(mesh);
+      holder.position.set(cx, cy, ZF + 1.2); holder.rotation.z = rot * Math.PI / 180;
+      mesh.userData.id = p.id; g.add(holder);
+    };
+    if (p.kind === 'pile') place(p.x, p.y, p.spin, p.n);
+    else for (const f of footprints(p)) {
+      if (p.lay === 'arc') place(f.cx, f.cy, f.rot, 1);
+      else {
+        const c = Math.cos(p.spin * Math.PI / 180), s = Math.sin(p.spin * Math.PI / 180), gap = 3;
+        for (let i = 0; i < p.n; i++) { const v = (i - (p.n - 1) / 2) * (w + gap); place(p.x - v * s, p.y + v * c, p.spin, 1); }
+      }
+    }
+  }
+  scene.add(g); groups.set(p.id, g);
+}
+
+// ---- checks: overlaps, the drum, the fixed quarters, and the rim; and the tray size the layout needs
+function evaluate() {
+  const probs = [];
+  let need = 0;
+  for (const p of pieces) p.bad = false;
+  for (const p of pieces) {
+    const fs = footprints(p);
+    for (const f of fs) {
+      for (const [x, y] of corners(f)) need = Math.max(need, Math.hypot(x, y));
+      const pts = samples(f);
+      if (pts.some(([x, y]) => Math.hypot(x, y) < DRUM_R)) { probs.push(`${p.name} runs into the scoring drum`); p.bad = true; }
+      for (const [a0, a1, label] of FIXED_SECTORS) {
+        if (pts.some(([x, y]) => { const r = Math.hypot(x, y); let a = Math.atan2(y, x) * 180 / Math.PI; if (a < 0) a += 360; return r > DRUM_R && a > a0 + 0.5 && a < a1 - 0.5; })) {
+          probs.push(`${p.name} is over ${label}`); p.bad = true;
+        }
+      }
+    }
+  }
+  for (let i = 0; i < pieces.length; i++) for (let j = i + 1; j < pieces.length; j++) {
+    if (footprints(pieces[i]).some(a => footprints(pieces[j]).some(b => sat(a, b)))) {
+      probs.push(`${pieces[i].name} overlaps ${pieces[j].name}`); pieces[i].bad = pieces[j].bad = true;
+    }
+  }
+  const needR = Math.max(R, need + 3);                       // its rim is 3 mm thick
+  const fits = need <= R_IN;
+  document.getElementById('size').textContent = fits
+    ? `Fits the 370 mm (14.6 in) tray`
+    : `Needs a ${(2 * needR).toFixed(0)} mm (${(2 * needR / 25.4).toFixed(1)} in) tray`;
+  needRing.visible = !fits;
+  needRing.geometry.dispose(); needRing.geometry = new THREE.RingGeometry(needR - 1.5, needR, 180);
+  document.getElementById('problems').innerHTML = [...new Set(probs)].map(t => `<div class="bad">${t}</div>`).join('') ||
+    (fits ? '<div>No overlaps.</div>' : '<div>No overlaps; the red ring shows the rim it needs.</div>');
+}
+
+// ---- panel
+function list() {
+  document.getElementById('pieces').innerHTML = pieces.map(p =>
+    `<button data-id="${p.id}" class="${p.id === sel ? 'on' : ''} ${p.bad ? 'bad' : ''}"><i style="background:${p.color}"></i>${p.name}</button>`).join('');
+  document.querySelectorAll('#pieces button').forEach(b => b.onclick = () => select(b.dataset.id));
+}
+const $ = id => document.getElementById(id);
+function selected() { return pieces.find(p => p.id === sel); }
+function panel() {
+  const p = selected();
+  $('selname').textContent = p.name;
+  const cardy = p.kind !== 'block';
+  for (const id of ['ang', 'n', 'turn']) $(id).closest(id === 'turn' ? '.row' : 'label').style.display = cardy ? '' : 'none';
+  $('lay').style.display = p.kind === 'display' ? '' : 'none';
+  $('spin').closest('label').style.display = p.kind === 'display' && p.lay === 'arc' ? 'none' : '';
+  $('ang').value = p.angle ?? 0; $('angv').textContent = `${p.angle ?? 0}°`;
+  $('spin').value = ((p.spin + 540) % 360) - 180; $('spinv').textContent = `${Math.round(((p.spin + 540) % 360) - 180)}°`;
+  $('n').value = p.n ?? 1; $('nv').textContent = p.n ?? '';
+  $('n').max = p.kind === 'display' ? 8 : 200;
+  document.querySelectorAll('#lay button').forEach(b => b.classList.toggle('on', b.dataset.lay === p.lay));
+  const fs = footprints(p);
+  $('selinfo').textContent = p.kind === 'block' ? `${p.size[0]} x ${p.size[1]} mm` :
+    `Footprint ${(2 * fs[0].hx).toFixed(0)} deep x ${(p.kind === 'display' && p.lay === 'arc' ? fs.length * (p.card[0] + 3) : 2 * fs[0].hy).toFixed(0)} mm ` +
+    `(${p.card[0]} x ${p.card[1]} mm cards). Centre ${Math.hypot(p.x, p.y).toFixed(0)} mm from the middle.`;
+}
+function refresh(all = false) {
+  evaluate();
+  for (const p of pieces) build(p);
+  list(); panel();
+  localStorage.setItem(SAVE, JSON.stringify(pieces));
+}
+function select(id) { sel = id; refresh(); }
+$('ang').oninput = e => { selected().angle = +e.target.value; refresh(); };
+$('spin').oninput = e => { selected().spin = +e.target.value; refresh(); };
+$('n').oninput = e => { selected().n = +e.target.value; refresh(); };
+$('turn').onclick = () => { const p = selected(); p.card = [p.card[1], p.card[0]]; refresh(); };
+document.querySelectorAll('#lay button').forEach(b => b.onclick = () => { selected().lay = b.dataset.lay; refresh(); });
+$('reset').onclick = () => { pieces = structuredClone(DEFAULTS); sel = pieces[0].id; refresh(); };
+$('copy').onclick = async () => {
+  const txt = JSON.stringify(pieces.map(({ bad, color, ...p }) => ({ ...p, x: +p.x.toFixed(1), y: +p.y.toFixed(1), spin: +p.spin.toFixed(1) })), null, 1);
+  $('out').value = txt;
+  try { await navigator.clipboard.writeText(txt); $('copy').textContent = 'Copied'; setTimeout(() => $('copy').textContent = 'Copy layout', 1500); } catch (e) {}
+};
+
+// ---- dragging: move, or spin with Shift
+const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -ZF), hit = new THREE.Vector3();
+let drag = null;
+function pointerAt(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
+}
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  pointerAt(e);
+  const hits = ray.intersectObjects([...groups.values()], true).filter(h => h.object.userData.id || h.object.parent?.userData?.id);
+  const id = hits[0] && (hits[0].object.userData.id || hits[0].object.parent.userData.id);
+  if (!id) return;
+  if (id !== sel) select(id);
+  ray.ray.intersectPlane(plane, hit);
+  const p = selected();
+  drag = { spin: e.shiftKey, dx: hit.x - p.x, dy: hit.y - p.y, a0: Math.atan2(hit.y - p.y, hit.x - p.x) * 180 / Math.PI, s0: p.spin };
+  controls.enabled = false;
+  renderer.domElement.setPointerCapture(e.pointerId);
+});
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!drag) return;
+  pointerAt(e);
+  if (!ray.ray.intersectPlane(plane, hit)) return;
+  const p = selected();
+  if (drag.spin) p.spin = drag.s0 + Math.atan2(hit.y - p.y, hit.x - p.x) * 180 / Math.PI - drag.a0;
+  else { p.x = hit.x - drag.dx; p.y = hit.y - drag.dy; }
+  refresh();
+});
+renderer.domElement.addEventListener('pointerup', () => { drag = null; controls.enabled = true; });
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const p = selected(), step = e.shiftKey ? 10 : 1;
+  const k = { ArrowLeft: () => p.x -= step, ArrowRight: () => p.x += step, ArrowUp: () => p.y += step, ArrowDown: () => p.y -= step,
+              q: () => p.spin += 5, e: () => p.spin -= 5, '[': () => p.angle = Math.max(0, (p.angle ?? 0) - 5), ']': () => p.angle = Math.min(90, (p.angle ?? 0) + 5) }[e.key];
+  if (k) { k(); refresh(); e.preventDefault(); }
+});
+
+refresh();
+(function loop() { renderer.render(scene, camera); requestAnimationFrame(loop); })();
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+window.__layout = { pieces: () => pieces, select, refresh };
+</script></body></html>

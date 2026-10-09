@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decks quarter: three layouts</title>
+<style>
+  body { margin: 0; background: #23251f; color: #e9e4d6; font: 13px/1.4 -apple-system, sans-serif; overflow: hidden; }
+  #view { position: fixed; inset: 0; }
+  #caps { position: fixed; top: 10px; left: 10px; right: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .cap { background: rgba(30,32,27,.88); border-radius: 8px; padding: 8px 10px; }
+  .cap h2 { margin: 0 0 3px; font-size: 14px; color: #c9b48c; }
+  .cap p { margin: 2px 0; color: #b9b4a2; }
+  .cap .m { color: #a7b89a; }
+  #key { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(30,32,27,.88);
+         border-radius: 8px; padding: 7px 12px; color: #b9b4a2; text-align: center; }
+</style></head><body>
+<div id="view"></div>
+<div id="caps">
+  <div class="cap"><h2>Now: bird card shoe</h2><p>349 cards in one shoe, the discard on its snap-on lid, bonus deck and discard in two 45&deg; tilt trays.</p><p class="m" id="m-shoe"></p></div>
+  <div class="cap"><h2>A. 200-card cradle, discard on top</h2><p>200 bird cards in a lean cradle on the diagonal, a bonus cradle either side, all facing the rim. The bird discard tray rides on the bird cradle's back.</p><p class="m" id="m-cradles"></p></div>
+  <div class="cap"><h2>B. 180-card cradle, all on the floor</h2><p>180 bird cards. Nothing stacked: the bird discard lies flat along the feeder seam, the bonus discard sits inside by the drum.</p><p class="m" id="m-cradles-floor"></p></div>
+</div>
+<div id="key">The decks quarter alone, with the birdfeeder behind it for scale (ghosted). Drag to orbit, scroll to zoom.</div>
+<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(Math.min(devicePixelRatio, 2));
+r.setSize(innerWidth, innerHeight); document.getElementById('view').appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x23251f);
+const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 1, 10000); cam.up.set(0, 0, 1);
+const ctl = new OrbitControls(cam, r.domElement); ctl.zoomSpeed = 10; ctl.zoomToCursor = true;
+scene.add(new THREE.HemisphereLight(0xfff8ec, 0x3a3a30, 1.5));
+const sun = new THREE.DirectionalLight(0xffffff, 1.3); sun.position.set(500, -300, 800); scene.add(sun);
+const meta = await (await fetch('deck-demo/demo.json?' + Date.now())).json();
+const loader = new STLLoader();
+const mat = (c, o = 1) => new THREE.MeshStandardMaterial({ color: c, roughness: .75, side: THREE.DoubleSide, transparent: o < 1, opacity: o, depthWrite: o === 1 });
+const order = [['shoe', -340], ['cradles', 0], ['cradles-floor', 340]];
+for (const [st, dx] of order) {
+  const m = meta[st];
+  document.getElementById('m-' + st).textContent = `Tallest point ${m.top} mm above the floor; ${m.free} of ${m.total} cm² of floor left open.`;
+  const grp = new THREE.Group(); grp.position.x = dx; grp.rotation.z = -Math.PI / 4; scene.add(grp);
+  for (const [part, col, o] of [['quarter', 0xd8cdb4, 1], ['parts', 0x9fb59f, 1], ['cards', 0x9fb3c8, 1], ['feeder', 0xeee6d2, .25]]) {
+    const g = await loader.loadAsync(`deck-demo/${st}-${part}.stl?${Date.now()}`); g.computeVertexNormals();
+    grp.add(new THREE.Mesh(g, mat(col, o)));
+  }
+}
+cam.position.set(0, -1350, 1000); ctl.target.set(0, 110, 30); ctl.update();
+(function loop() { r.render(scene, cam); requestAnimationFrame(loop); })();
+addEventListener('resize', () => { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); r.setSize(innerWidth, innerHeight); });
+</script></body></html>

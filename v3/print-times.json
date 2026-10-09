@@ -1,0 +1,364 @@
+{
+ "generated": "2026-10-08",
+ "slicer": "OrcaSlicer (stock printer profiles, PLA, 0.2 mm, 3 walls, 15% gyroid)",
+ "groups": {
+  "tray": "Playing tray: 4 quarters and the bowtie keys",
+  "feeder": "Birdfeeder: body, roof and baffles",
+  "drum": "Scoring drum and its sleeve",
+  "storage-base": "Storage base: 4 pieces and their keys",
+  "storage-lids": "Storage lids (4)",
+  "coupon": "Fit-test coupon"
+ },
+ "parts": {
+  "fit-test-coupon": {
+   "copies": 1,
+   "group": "coupon"
+  },
+  "quarter-cards": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "quarter-food-eggs": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "quarter-feeder": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "quarter-decks": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "keys-x8": {
+   "copies": 1,
+   "group": "tray"
+  },
+  "feeder-tower": {
+   "copies": 1,
+   "group": "feeder"
+  },
+  "feeder-roof": {
+   "copies": 1,
+   "group": "feeder"
+  },
+  "feeder-baffles": {
+   "copies": 1,
+   "group": "feeder"
+  },
+  "scoring-drum": {
+   "copies": 1,
+   "group": "drum"
+  },
+  "drum-sleeve": {
+   "copies": 1,
+   "group": "drum"
+  },
+  "storage-base-1": {
+   "copies": 4,
+   "group": "storage-base"
+  },
+  "storage-keys-x6": {
+   "copies": 1,
+   "group": "storage-base"
+  },
+  "storage-lid-cards": {
+   "copies": 1,
+   "group": "storage-lids"
+  },
+  "storage-lid-food-eggs": {
+   "copies": 1,
+   "group": "storage-lids"
+  },
+  "storage-lid-feeder": {
+   "copies": 1,
+   "group": "storage-lids"
+  },
+  "storage-lid-decks": {
+   "copies": 1,
+   "group": "storage-lids"
+  }
+ },
+ "printers": {
+  "Bambu Lab P1S / X1C": {
+   "keys-x8": {
+    "h": 0.34,
+    "g": 5.2
+   },
+   "fit-test-coupon": {
+    "h": 0.339,
+    "g": 7.3
+   },
+   "feeder-roof": {
+    "h": 0.871,
+    "g": 28.4
+   },
+   "feeder-tower": {
+    "h": 2.883,
+    "g": 137.1
+   },
+   "feeder-baffles": {
+    "h": 0.32,
+    "g": 9.7
+   },
+   "quarter-feeder": {
+    "h": 2.798,
+    "g": 124.5
+   },
+   "quarter-decks": {
+    "h": 2.783,
+    "g": 123.9
+   },
+   "storage-keys-x6": {
+    "h": 0.243,
+    "g": 3.0
+   },
+   "storage-base-1": {
+    "h": 2.952,
+    "g": 173.2
+   },
+   "quarter-cards": {
+    "h": 5.041,
+    "g": 235.8
+   },
+   "quarter-food-eggs": {
+    "h": 3.953,
+    "g": 205.8
+   },
+   "drum-sleeve": {
+    "h": 1.333,
+    "g": 32.5
+   },
+   "storage-lid-cards": {
+    "h": 3.968,
+    "g": 203.9
+   },
+   "storage-lid-feeder": {
+    "h": 3.839,
+    "g": 197.5
+   },
+   "scoring-drum": {
+    "h": 6.798,
+    "g": 172.3
+   },
+   "storage-lid-decks": {
+    "h": 3.968,
+    "g": 203.9
+   },
+   "storage-lid-food-eggs": {
+    "h": 6.092,
+    "g": 304.5
+   }
+  },
+  "Bambu Lab A1": {
+   "fit-test-coupon": {
+    "h": 0.409,
+    "g": 7.3
+   },
+   "keys-x8": {
+    "h": 0.397,
+    "g": 5.2
+   },
+   "feeder-tower": {
+    "h": 3.637,
+    "g": 137.1
+   },
+   "quarter-cards": {
+    "h": 5.598,
+    "g": 235.8
+   },
+   "feeder-baffles": {
+    "h": 0.346,
+    "g": 9.7
+   },
+   "feeder-roof": {
+    "h": 1.246,
+    "g": 28.4
+   },
+   "quarter-feeder": {
+    "h": 3.152,
+    "g": 124.5
+   },
+   "storage-keys-x6": {
+    "h": 0.276,
+    "g": 2.9
+   },
+   "quarter-decks": {
+    "h": 3.134,
+    "g": 123.9
+   },
+   "quarter-food-eggs": {
+    "h": 4.363,
+    "g": 205.8
+   },
+   "storage-base-1": {
+    "h": 3.224,
+    "g": 173.2
+   },
+   "storage-lid-cards": {
+    "h": 4.764,
+    "g": 203.9
+   },
+   "drum-sleeve": {
+    "h": 1.79,
+    "g": 32.4
+   },
+   "storage-lid-feeder": {
+    "h": 4.531,
+    "g": 197.4
+   },
+   "storage-lid-decks": {
+    "h": 4.764,
+    "g": 203.9
+   },
+   "storage-lid-food-eggs": {
+    "h": 6.95,
+    "g": 304.5
+   },
+   "scoring-drum": {
+    "h": 8.258,
+    "g": 172.3
+   }
+  },
+  "Anycubic Kobra 3": {
+   "fit-test-coupon": {
+    "h": 0.336,
+    "g": 7.0
+   },
+   "quarter-feeder": {
+    "h": 3.969,
+    "g": 121.5
+   },
+   "keys-x8": {
+    "h": 0.259,
+    "g": 5.0
+   },
+   "feeder-baffles": {
+    "h": 0.302,
+    "g": 9.2
+   },
+   "feeder-roof": {
+    "h": 1.09,
+    "g": 28.1
+   },
+   "feeder-tower": {
+    "h": 3.908,
+    "g": 132.7
+   },
+   "quarter-food-eggs": {
+    "h": 5.747,
+    "g": 199.7
+   },
+   "quarter-cards": {
+    "h": 6.892,
+    "g": 229.7
+   },
+   "storage-keys-x6": {
+    "h": 0.156,
+    "g": 2.8
+   },
+   "quarter-decks": {
+    "h": 3.981,
+    "g": 120.6
+   },
+   "storage-base-1": {
+    "h": 4.489,
+    "g": 166.4
+   },
+   "drum-sleeve": {
+    "h": 1.624,
+    "g": 31.3
+   },
+   "storage-lid-feeder": {
+    "h": 5.864,
+    "g": 197.3
+   },
+   "storage-lid-cards": {
+    "h": 6.032,
+    "g": 203.5
+   },
+   "storage-lid-decks": {
+    "h": 6.032,
+    "g": 203.5
+   },
+   "scoring-drum": {
+    "h": 7.863,
+    "g": 170.9
+   },
+   "storage-lid-food-eggs": {
+    "h": 8.857,
+    "g": 301.0
+   }
+  },
+  "Creality Ender-3 S1 Plus": {
+   "fit-test-coupon": {
+    "h": 0.662,
+    "g": 7.2
+   },
+   "keys-x8": {
+    "h": 0.566,
+    "g": 5.2
+   },
+   "quarter-cards": {
+    "h": 18.211,
+    "g": 231.2
+   },
+   "feeder-roof": {
+    "h": 2.345,
+    "g": 26.6
+   },
+   "feeder-tower": {
+    "h": 10.269,
+    "g": 130.7
+   },
+   "quarter-feeder": {
+    "h": 9.011,
+    "g": 120.5
+   },
+   "feeder-baffles": {
+    "h": 0.738,
+    "g": 9.6
+   },
+   "storage-keys-x6": {
+    "h": 0.318,
+    "g": 3.0
+   },
+   "quarter-decks": {
+    "h": 8.555,
+    "g": 118.9
+   },
+   "quarter-food-eggs": {
+    "h": 15.329,
+    "g": 197.1
+   },
+   "storage-base-1": {
+    "h": 12.388,
+    "g": 167.2
+   },
+   "storage-lid-cards": {
+    "h": 14.539,
+    "g": 200.6
+   },
+   "drum-sleeve": {
+    "h": 4.401,
+    "g": 30.8
+   },
+   "storage-lid-feeder": {
+    "h": 14.047,
+    "g": 194.5
+   },
+   "storage-lid-food-eggs": {
+    "h": 23.042,
+    "g": 297.9
+   },
+   "scoring-drum": {
+    "h": 20.086,
+    "g": 165.9
+   },
+   "storage-lid-decks": {
+    "h": 14.539,
+    "g": 200.6
+   }
+  }
+ }
+}

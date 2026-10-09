@@ -15,20 +15,6 @@
    "mb": 0.68
   },
   {
-   "file": "stl/bird-shoe-ramp.stl",
-   "name": "bird-shoe-ramp",
-   "qty": "1",
-   "note": "",
-   "mb": 0.01
-  },
-  {
-   "file": "stl/bird-shoe.stl",
-   "name": "bird-shoe",
-   "qty": "1",
-   "note": "Bird card shoe: half the bird collection, leaning in a covered box. Thumb the front card down and out of the slot.",
-   "mb": 0.01
-  },
-  {
    "file": "stl/drum-sleeve.stl",
    "name": "drum-sleeve",
    "qty": "1",
@@ -96,28 +82,28 @@
    "name": "quarter-cards",
    "qty": "1",
    "note": "Hummingbird draw deck and discard wells (bird-card stands out for now). Floor down.",
-   "mb": 1.42
+   "mb": 3.59
   },
   {
    "file": "stl/quarter-decks.stl",
    "name": "quarter-decks",
    "qty": "1",
    "note": "Deck and discard wells. Floor down.",
-   "mb": 0.85
+   "mb": 3.62
   },
   {
    "file": "stl/quarter-feeder.stl",
    "name": "quarter-feeder",
    "qty": "1",
    "note": "Birdfeeder dish and rolling area. Floor down.",
-   "mb": 0.95
+   "mb": 2.69
   },
   {
    "file": "stl/quarter-food-eggs.stl",
    "name": "quarter-food-eggs",
    "qty": "1",
    "note": "Food bins and egg bin. Floor down.",
-   "mb": 1.27
+   "mb": 3.8
   },
   {
    "file": "stl/scoring-drum-body-only.stl",
@@ -139,6 +125,69 @@
    "qty": "1",
    "note": "Centre piece: inner scoring drum with goal-tile slots and a captive tile lift printed in place (push the tab down once to free it). One colour on a single-nozzle printer; for two, use the body-only and lift-only files. Pairs with the drum sleeve.",
    "mb": 0.65
+  },
+  {
+   "file": "stl/storage-base-1.stl",
+   "name": "storage-base-1",
+   "qty": "1",
+   "note": "",
+   "mb": 0.56
+  },
+  {
+   "file": "stl/storage-base-2.stl",
+   "name": "storage-base-2",
+   "qty": "1",
+   "note": "",
+   "mb": 0.56
+  },
+  {
+   "file": "stl/storage-base-3.stl",
+   "name": "storage-base-3",
+   "qty": "1",
+   "note": "",
+   "mb": 0.56
+  },
+  {
+   "file": "stl/storage-base-4.stl",
+   "name": "storage-base-4",
+   "qty": "1",
+   "note": "",
+   "mb": 0.56
+  },
+  {
+   "file": "stl/storage-keys-x6.stl",
+   "name": "storage-keys-x6",
+   "qty": "1",
+   "note": "",
+   "mb": 0.01
+  },
+  {
+   "file": "stl/storage-lid-cards.stl",
+   "name": "storage-lid-cards",
+   "qty": "1",
+   "note": "",
+   "mb": 1.81
+  },
+  {
+   "file": "stl/storage-lid-decks.stl",
+   "name": "storage-lid-decks",
+   "qty": "1",
+   "note": "",
+   "mb": 1.81
+  },
+  {
+   "file": "stl/storage-lid-feeder.stl",
+   "name": "storage-lid-feeder",
+   "qty": "1",
+   "note": "",
+   "mb": 1.83
+  },
+  {
+   "file": "stl/storage-lid-food-eggs.stl",
+   "name": "storage-lid-food-eggs",
+   "qty": "1",
+   "note": "",
+   "mb": 2.1
   }
  ],
  "hardware": [
@@ -167,8 +216,8 @@
    "All the same thickness."
   ]
  ],
- "checks_passed": 229,
- "checks_total": 229,
+ "checks_passed": 281,
+ "checks_total": 281,
  "sims": {
   "dice-simulation": {
    "trials": 40,
@@ -186,5 +235,5 @@
   }
  },
  "diameter": 460.0,
- "build": 1791419199
+ "build": 1791554496
 }

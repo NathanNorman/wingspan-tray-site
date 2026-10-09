@@ -1,0 +1,210 @@
+{
+ "files": [
+  {
+   "file": "stl/drum-sleeve.stl",
+   "name": "drum-sleeve",
+   "qty": "1",
+   "note": "Scoring-drum sleeve, in a second colour: slide it over the drum (pin up the slot) and twist.",
+   "mb": 1.01
+  },
+  {
+   "file": "stl/feeder-baffles.stl",
+   "name": "feeder-baffles",
+   "qty": "1 plate",
+   "note": "Two baffles, printed flat. Drop them in from the top onto the ledges inside, lower one first.",
+   "mb": 0.0
+  },
+  {
+   "file": "stl/feeder-roof.stl",
+   "name": "feeder-roof",
+   "qty": "1",
+   "note": "Lift-off 20-degree roof. Prints on its end; lips under its ends hug the gables.",
+   "mb": 0.01
+  },
+  {
+   "file": "stl/feeder-tower.stl",
+   "name": "feeder-tower",
+   "qty": "1",
+   "note": "Birdfeeder body: back, sides and front in one piece. Prints upright, no supports.",
+   "mb": 0.04
+  },
+  {
+   "file": "stl/fit-test-coupon.stl",
+   "name": "fit-test-coupon",
+   "qty": "1",
+   "note": "Print first: checks the bowtie key fit, the bearing ring pin recess, a seam-pin hole, and a display-card slot (stand a card in it).",
+   "mb": 0.04
+  },
+  {
+   "file": "stl/keys-x8.stl",
+   "name": "keys-x8",
+   "qty": "1 plate",
+   "note": "Eight bowtie keys that join the quarters. 100% infill, 0.12 mm layers.",
+   "mb": 0.01
+  },
+  {
+   "file": "stl/quarter-cards.stl",
+   "name": "quarter-cards",
+   "qty": "1",
+   "note": "Printed card slots for the 3 face-up bird cards and 5 face-up hummingbird cards, the hummingbird discard tray and the Duet pocket. Floor down, 5 mm brim.",
+   "mb": 3.3
+  },
+  {
+   "file": "stl/quarter-decks.stl",
+   "name": "quarter-decks",
+   "qty": "1",
+   "note": "Sockets for the two deck boxes and the hummingbird draw tray. Floor down, 5 mm brim.",
+   "mb": 2.8
+  },
+  {
+   "file": "stl/quarter-feeder.stl",
+   "name": "quarter-feeder",
+   "qty": "1",
+   "note": "Birdfeeder socket, dish, outside-the-feeder area, and the cradle the birdfeeder lies in for storage. Floor down, 5 mm brim.",
+   "mb": 2.64
+  },
+  {
+   "file": "stl/quarter-food-eggs.stl",
+   "name": "quarter-food-eggs",
+   "qty": "1",
+   "note": "Six food bins (45 tokens each) and the egg bin (75). Floor down, 5 mm brim.",
+   "mb": 3.75
+  },
+  {
+   "file": "stl/scoring-drum-body-only.stl",
+   "name": "scoring-drum-body-only",
+   "qty": "-",
+   "note": "Multi-material printers only: the drum without its lift, in the same position as the lift-only file.",
+   "mb": 0.62
+  },
+  {
+   "file": "stl/scoring-drum-lift-only.stl",
+   "name": "scoring-drum-lift-only",
+   "qty": "-",
+   "note": "Multi-material printers only: the lift by itself, positioned to drop into the body-only file.",
+   "mb": 0.02
+  },
+  {
+   "file": "stl/scoring-drum.stl",
+   "name": "scoring-drum",
+   "qty": "1",
+   "note": "Centre piece: inner scoring drum with goal-tile slots and a captive tile lift printed in place (push the tab down once to free it). For two colours, use the body-only and lift-only files.",
+   "mb": 0.64
+  },
+  {
+   "file": "stl/storage-base-1.stl",
+   "name": "storage-base-1",
+   "qty": "1",
+   "note": "Storage base, one of four pieces. Floor down, 5 mm brim. Glue the seams.",
+   "mb": 0.35
+  },
+  {
+   "file": "stl/storage-base-2.stl",
+   "name": "storage-base-2",
+   "qty": "1",
+   "note": "Storage base, one of four pieces. Floor down, 5 mm brim. Glue the seams.",
+   "mb": 0.35
+  },
+  {
+   "file": "stl/storage-base-3.stl",
+   "name": "storage-base-3",
+   "qty": "1",
+   "note": "Storage base, one of four pieces. Floor down, 5 mm brim. Glue the seams.",
+   "mb": 0.35
+  },
+  {
+   "file": "stl/storage-base-4.stl",
+   "name": "storage-base-4",
+   "qty": "1",
+   "note": "Storage base, one of four pieces. Floor down, 5 mm brim. Glue the seams.",
+   "mb": 0.35
+  },
+  {
+   "file": "stl/storage-keys-x6.stl",
+   "name": "storage-keys-x6",
+   "qty": "1 plate",
+   "note": "Six bowtie keys that join the storage base pieces.",
+   "mb": 0.01
+  },
+  {
+   "file": "stl/storage-lid-cards.stl",
+   "name": "storage-lid-cards",
+   "qty": "1",
+   "note": "Optional storage lid, printed top down.",
+   "mb": 1.82
+  },
+  {
+   "file": "stl/storage-lid-decks.stl",
+   "name": "storage-lid-decks",
+   "qty": "1",
+   "note": "Optional storage lid, printed top down.",
+   "mb": 1.82
+  },
+  {
+   "file": "stl/storage-lid-feeder.stl",
+   "name": "storage-lid-feeder",
+   "qty": "1",
+   "note": "Optional storage lid, printed top down.",
+   "mb": 1.54
+  },
+  {
+   "file": "stl/storage-lid-food-eggs.stl",
+   "name": "storage-lid-food-eggs",
+   "qty": "1",
+   "note": "Optional storage lid, printed top down.",
+   "mb": 2.1
+  }
+ ],
+ "hardware": [
+  [
+   "1",
+   "12-inch lazy Susan bearing ring (Lswteiz)",
+   "https://www.amazon.com/s?k=Lswteiz+12+inch+lazy+susan+turntable+bearing",
+   "The quarters rest on its top plate. Measure the hole positions before printing the quarters."
+  ],
+  [
+   "4",
+   "Locating pins, 5 mm x 4.5 mm",
+   "",
+   "Cut from a 5 mm dowel or rod: one per quarter, through a ring hole into the quarter."
+  ],
+  [
+   "2",
+   "Acrylic deck boxes, 2.8 x 3 x 4 in (Mlikero 6-pack)",
+   "https://www.mlikero.com/products/mlikero-card-deck-cases-6-pack-acrylic-commander-deck-box-holding-100-sleeved-cards-with-6-dividers-clear-card-storage-box-fit-for-mtg-tcg-sports-cards",
+   "Bird deck with its discard behind a divider; bonus deck and discard."
+  ],
+  [
+   "8",
+   "Seam pins: 10 mm lengths of 1.75 mm filament",
+   "",
+   "Two per seam."
+  ],
+  [
+   "4",
+   "Stick-on bumpers",
+   "https://www.amazon.com/s?k=small+rubber+bumper+feet",
+   "Under the bearing ring's bottom plate."
+  ]
+ ],
+ "checks_passed": 234,
+ "checks_total": 234,
+ "sims": {
+  "dice-simulation-2dice": {
+   "trials": 40,
+   "outcomes": {
+    "exited through the front": 77,
+    "never entered the chute": 3
+   }
+  },
+  "dice-simulation": {
+   "trials": 40,
+   "outcomes": {
+    "exited through the front": 179,
+    "never entered the chute": 21
+   }
+  }
+ },
+ "diameter": 370.0,
+ "build": 1791561883
+}

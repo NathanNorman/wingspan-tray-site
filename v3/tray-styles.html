@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>B6 tray styles: A, B, C</title>
+<style>
+  body { margin: 0; background: #23251f; color: #e9e4d6; font: 13px/1.4 -apple-system, sans-serif; overflow: hidden; }
+  #view { position: fixed; inset: 0; }
+  #caps { position: fixed; top: 10px; left: 10px; right: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; pointer-events: none; }
+  .cap { background: rgba(30,32,27,.9); border-radius: 8px; padding: 8px 10px; }
+  .cap h2 { margin: 0 0 3px; font-size: 14px; color: #c9b48c; } .cap p { margin: 2px 0; color: #b9b4a2; font-size: 12px; }
+</style></head><body>
+<div id="view"></div><div id="caps"></div>
+<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { stackSet, loadSoftStacks } from './stacks.js';
+await loadSoftStacks();
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.setSize(innerWidth, innerHeight);
+document.getElementById('view').appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x23251f);
+const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 1, 20000); cam.up.set(0, 0, 1);
+const ctl = new OrbitControls(cam, r.domElement); ctl.zoomSpeed = 10; ctl.zoomToCursor = true;
+scene.add(new THREE.HemisphereLight(0xfff8ec, 0x3a3a30, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(400, -700, 900); scene.add(sun);
+const CAPS = [
+  ['A. Walled, thumb notch', 'Full-height walls on both tiers, a 25 mm U notch down to the floor at the front. Pinch the top card through the notch.'],
+  ['B. Tilted 8° back, low lip', 'Both tiers slope down toward the back so cards settle in; the front lip is 4 mm. Push the top card forward over the lip.'],
+  ['C. Ramp deck, cutout discard', 'Deck: a curved ramp up to a 10 mm lip, drag the top card forward and it rides up and off. Discard: full walls with finger cutouts to lift the pile.'],
+  ['B soft. No right angles', 'B, reshaped as one printed piece per stack: two filleted side cheeks wrap both tiers, joined by the floors, back walls and rounded front lips. Rounded edges everywhere.'],
+];
+const caps = document.getElementById('caps');
+[5, 6, 7, 8].forEach((i, k) => {
+  const { group } = stackSet(i), holder = new THREE.Group(); holder.add(group);
+  const bb = new THREE.Box3().setFromObject(group), c = bb.getCenter(new THREE.Vector3());
+  group.position.x -= c.x; group.position.y -= c.y; holder.position.x = (k - 1.5) * 330; scene.add(holder);
+  caps.insertAdjacentHTML('beforeend', `<div class="cap"><h2>${CAPS[k][0]}</h2><p>${CAPS[k][1]}</p></div>`);
+});
+cam.position.set(0, -1500, 750); ctl.target.set(0, 0, 25); ctl.update(); window.__view = { cam, ctl, scene };
+(function loop() { r.render(scene, cam); requestAnimationFrame(loop); })();
+addEventListener('resize', () => { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); r.setSize(innerWidth, innerHeight); });
+</script></body></html>
