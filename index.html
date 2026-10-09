@@ -1186,6 +1186,15 @@ function filamentMaterial(f) {
   if (f.tex) m.map = texCache[f.tex] ||= TEX[f.tex]();
   return m;
 }
+const DEFAULT_PRICE = 17;
+function filamentPrice(id) {
+  if (!id) return DEFAULT_PRICE;
+  if (id.startsWith('bbl-matte')) return 20;
+  if (id.startsWith('bbl-wood')) return 25;
+  if (id.startsWith('polyterra')) return 18;
+  return { 'silk-gold': 22, 'silk-silver': 22, 'silk-copper': 22, clear: 18, 'clear-blue': 18, glow: 25, wood: 24, marble: 22,
+           carbon: 30, rainbow: 25 }[id] ?? DEFAULT_PRICE;
+}
 window.__filamentPrice = name => filamentPrice(saved[name]);
 const printed = parts.filter(p => PRINTED.test(p.item.name));
 printed.forEach(p => p.defaultMat = p.mesh.material);
